@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Begin Jekyll SEO tag v2.5.0 -->
+<title>GFS | wtf</title>
+<meta name="generator" content="Jekyll v3.7.4" />
+<meta property="og:title" content="GFS" />
+<meta name="author" content="Lin ZiHao" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="GFS论文 假设 文件的数量是GB级别，文件的大小是100MB左右，也支持小文件，但是没有特别优化 读的结构一般是大批的streaming read和小规模的random read。stream一般是读1MB，random一般是读几kb 写的结构是顺序的append，写了的基本不会改，也支持少量修改，不过不保证效率 优化throughput放弃latency 直接snapshot和record append" />
+<meta property="og:description" content="GFS论文 假设 文件的数量是GB级别，文件的大小是100MB左右，也支持小文件，但是没有特别优化 读的结构一般是大批的streaming read和小规模的random read。stream一般是读1MB，random一般是读几kb 写的结构是顺序的append，写了的基本不会改，也支持少量修改，不过不保证效率 优化throughput放弃latency 直接snapshot和record append" />
+<link rel="canonical" href="http://localhost:4000/distribute_system/2018/10/29/GFS.html" />
+<meta property="og:url" content="http://localhost:4000/distribute_system/2018/10/29/GFS.html" />
+<meta property="og:site_name" content="wtf" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2018-10-29T00:00:00+08:00" />
+<script type="application/ld+json">
+{"url":"http://localhost:4000/distribute_system/2018/10/29/GFS.html","headline":"GFS","dateModified":"2018-10-29T00:00:00+08:00","datePublished":"2018-10-29T00:00:00+08:00","author":{"@type":"Person","name":"Lin ZiHao"},"description":"GFS论文 假设 文件的数量是GB级别，文件的大小是100MB左右，也支持小文件，但是没有特别优化 读的结构一般是大批的streaming read和小规模的random read。stream一般是读1MB，random一般是读几kb 写的结构是顺序的append，写了的基本不会改，也支持少量修改，不过不保证效率 优化throughput放弃latency 直接snapshot和record append","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/distribute_system/2018/10/29/GFS.html"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"http://localhost:4000/assets/logo.png"},"name":"Lin ZiHao"},"@type":"BlogPosting","@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="stylesheet" href="/assets/css/style.css?v=0934d6ec7fc29760b260b7c1c04189256a2d7edc">
+    <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1><a href="http://localhost:4000/">wtf</a></h1>
+        
+        
+          <img src="/assets/logo.png" alt="Logo" />
+        
+
+        <p>desc....</p>
+
+        
+        <p class="view"><a href="http://github.com/schneiderlin/schneiderlin.github.io">View the Project on GitHub <small>schneiderlin/schneiderlin.github.io</small></a></p>
+        
+
+        
+
+        
+      </header>
+      <section>
+
+      <small>29 October 2018</small>
+<h1>GFS</h1>
+
+<p class="view">by linzihao</p>
+
+<h2 id="gfs论文">GFS论文</h2>
+<h4 id="假设">假设</h4>
+<ul>
+  <li>文件的数量是GB级别，文件的大小是100MB左右，也支持小文件，但是没有特别优化</li>
+  <li>读的结构一般是大批的streaming read和小规模的random read。stream一般是读1MB，random一般是读几kb</li>
+  <li>写的结构是顺序的append，写了的基本不会改，也支持少量修改，不过不保证效率</li>
+  <li>优化throughput放弃latency</li>
+  <li>直接snapshot和record append</li>
+</ul>
+
+<h4 id="架构">架构</h4>
+<p>cluster里面有一个master和多个chunkserver。
+文件被分为固定大小的chunk，每一个chunk都有一个全局唯一的ID，是64bit的叫做chunk handle，在master创建的时候生成。
+chunk一般replica3份放在不同的chunkserver
+meta-data的交互跟master进行，所有data的交互都直接跟chunkserver进行。
+<img src="https://i.imgur.com/74uiX7h.png" alt="" /></p>
+
+<h4 id="chunk-size">chunk size</h4>
+
+<p>chunk size64MB，大chunk size的好处。
+client和master交互得到一次meta data之后，就可以和某一个chunk server建立持久的TCP连接，然后读一堆的东西。
+chunk size大减少了master需要维持的meta data数量。</p>
+
+<p>chunk size大的坏处。
+需要用lazy space allocation
+有一些小文件可能只占一个chunk，存这个chunk的server可能会变成hot spot</p>
+
+<h4 id="metadata">metadata</h4>
+<p>master persistent file的namespace和file2chunk的mapping。
+chunk的位置只存在内存，master启动的时候询问chunkserver他存了什么chunk。</p>
+
+<h4 id="consistency-model">consistency model</h4>
+<p>什么是file region？
+file region的几种状态</p>
+<ul>
+  <li>consistent，所有client不管读哪个replica都能读到一样的内容</li>
+  <li>defined，mutation的时候没有受到concurrent writer的干扰，就是defined的，并且consistent</li>
+  <li>undefined，concurrent的mutation成功，可以保证所有人看到的是一样的，但是可能有一些writer的mutation被覆盖了。也是consistent的，可能混了不同mutation的部分。</li>
+  <li>undefined+unconsistent，mutation失败</li>
+</ul>
+
+<p>application只需要区分define和undefined，具体是怎么样的undefined不需要关心。</p>
+
+<p>写数据有两种方式
+write和record append</p>
+<ul>
+  <li>write是写在application指定的offset</li>
+  <li>record append是写在GFS指定的offset，在concurrent的时候不一定是文件的末尾。写完会返回给client一个offset，client将这个offset作为defined region的开始</li>
+</ul>
+
+<p>要保证mutation正确，需要</p>
+<ol>
+  <li>对一个chunk和他的所有replica都做相同顺序的mutation</li>
+  <li>用version number检测有没有replica miss了某个mutation</li>
+</ol>
+
+<p>TODO: padding是什么东西</p>
+
+<h4 id="mutation的order">mutation的order</h4>
+
+
+
+  <small>tags: <em>6.824</em></small>
+
+
+
+      </section>
+      <footer>
+        
+        <p>This project is maintained by <a href="http://github.com/schneiderlin">schneiderlin</a></p>
+        
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="/assets/js/scale.fix.js"></script>
+    
+  </body>
+</html>

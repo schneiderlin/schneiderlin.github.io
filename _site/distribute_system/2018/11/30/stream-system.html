@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Begin Jekyll SEO tag v2.5.0 -->
+<title>stream system | wtf</title>
+<meta name="generator" content="Jekyll v3.7.4" />
+<meta property="og:title" content="stream system" />
+<meta name="author" content="Lin ZiHao" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="joins over time window multi-pass data mining algorithms fault-tolerance buffer stateful pipeline" />
+<meta property="og:description" content="joins over time window multi-pass data mining algorithms fault-tolerance buffer stateful pipeline" />
+<link rel="canonical" href="http://localhost:4000/distribute_system/2018/11/30/stream-system.html" />
+<meta property="og:url" content="http://localhost:4000/distribute_system/2018/11/30/stream-system.html" />
+<meta property="og:site_name" content="wtf" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2018-11-30T00:00:00+08:00" />
+<script type="application/ld+json">
+{"url":"http://localhost:4000/distribute_system/2018/11/30/stream-system.html","headline":"stream system","dateModified":"2018-11-30T00:00:00+08:00","datePublished":"2018-11-30T00:00:00+08:00","author":{"@type":"Person","name":"Lin ZiHao"},"description":"joins over time window multi-pass data mining algorithms fault-tolerance buffer stateful pipeline","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/distribute_system/2018/11/30/stream-system.html"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"http://localhost:4000/assets/logo.png"},"name":"Lin ZiHao"},"@type":"BlogPosting","@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="stylesheet" href="/assets/css/style.css?v=0934d6ec7fc29760b260b7c1c04189256a2d7edc">
+    <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1><a href="http://localhost:4000/">wtf</a></h1>
+        
+        
+          <img src="/assets/logo.png" alt="Logo" />
+        
+
+        <p>desc....</p>
+
+        
+        <p class="view"><a href="http://github.com/schneiderlin/schneiderlin.github.io">View the Project on GitHub <small>schneiderlin/schneiderlin.github.io</small></a></p>
+        
+
+        
+
+        
+      </header>
+      <section>
+
+      <small>30 November 2018</small>
+<h1>stream system</h1>
+
+<p class="view">by linzihao</p>
+
+<ul>
+  <li>joins over time window</li>
+  <li>multi-pass data mining algorithms</li>
+  <li>fault-tolerance buffer</li>
+  <li>stateful pipeline</li>
+</ul>
+
+<h3 id="distribute-query-processing的套路">distribute query processing的套路</h3>
+<p>partition和shuffling，把大的data set分成单机可以处理的大小。</p>
+
+<p>如何partition有利于selection和projection(range query)？</p>
+
+<p>能够单机独立处理的都好办，关键是如何做distribute join。
+每一个processing都先独立join他那部分的data，最后再整合。</p>
+
+<p>distribute join分成两类</p>
+<ul>
+  <li>disjoint data partitioning</li>
+  <li>divide and broadcast join</li>
+</ul>
+
+<h3 id="disjoint-data-partitioning">disjoint data partitioning</h3>
+<p>根据join key（两个relation里面共同的key）把data分成disjoint的多份数据。每一份都可以独立join(相同的join key一定在同一份数据里)，最后直接把所有独立join的结果concat。
+<img src="https://i.imgur.com/RxV1MNY.png" alt="" /></p>
+
+<h3 id="divide-and-broadcast-join">divide and broadcast join</h3>
+<p>把第一个dataset分成几份，然后把第二个dataset replicate到所有的process
+<img src="https://i.imgur.com/Q97v9WG.png" alt="" />
+这种适合第二个dataset比较小的情况。
+在stream system中，可以用来做stream enrichment(admixture)</p>
+
+<p>上面的这两种都可以用message passing的方式实现。query engine可以看成是message queue连接的分布式节点。</p>
+
+<h2 id="pipelining">pipelining</h2>
+<p>stream的特征是不能阻塞，不能等某一部分的input进来，然后在等的过程中没有输出。
+sorting很明显办不到，sort必须要看到所有的input，才能决定如何排序。
+下面是一个可以pipeline的例子。
+<img src="https://highlyscalable.files.wordpress.com/2013/08/join-pipeline.png" alt="" /></p>
+
+<p>admixtures的时候就可以用这种方式。
+R数据集需要在网络中传输很多次，有什么方式优化</p>
+
+<p>还有一种高级的hash join叫symmetric hash join
+<img src="https://highlyscalable.files.wordpress.com/2013/08/symmetric-join.png" alt="" />
+普通的hash join需要stream1的input全部都到了才可以做一个hash table，然后开始stream2.symmetric hash join可以两个stream同时开始。</p>
+
+<p>stream到了之后，先lookup，如果能找到就输出。无论lookup有没有成功，都存到hash table里面。
+如果有一个stream是无限的，那么hash table会被挤爆，所以需要一个evict的policy。
+这种hash join还可以用来实现time base的join，时间过长的被evict掉就join不到一起。</p>
+
+
+
+  <small>tags: <em></em></small>
+
+
+
+      </section>
+      <footer>
+        
+        <p>This project is maintained by <a href="http://github.com/schneiderlin">schneiderlin</a></p>
+        
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="/assets/js/scale.fix.js"></script>
+    
+  </body>
+</html>
