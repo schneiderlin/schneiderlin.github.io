@@ -232,6 +232,10 @@ implicit def polyToMono6[F[_], G, T]
 ```
 
 ### natural transformation和他的缺陷 ###
+natural transformation是functor到functor之间的mapping，polymorphic function是从F[_]到G[_]的mapping。  
+natural transformation可以看成是把一个容器里面的东西重新打包到另一个容器里面。
+在一开始的容器里面fmap然后重新打包，和重新打包后再fmap是一样的。满足naturality condition。
+
 这种表示polymorphic function value的方式在higher-kinded type出现的时候就已经有了。用作表示natural transformation，在scalaz中经常有用到。
 
 这种表示方式也有一些缺陷。
