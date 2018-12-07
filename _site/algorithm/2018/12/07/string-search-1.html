@@ -62,50 +62,91 @@
   <li>M: 屏蔽词的平均长度</li>
 </ul>
 
-<p>首先考虑只有一个屏蔽词，例如从”xxxxxxxxxxxx fuk xxxxxxxxx”中判断是否有屏蔽词”fuk”。</p>
+<h3 id="用trie表示所有的屏蔽词">用trie表示所有的屏蔽词</h3>
+<p><img src="/assets/trie.png" alt="" /><br />
+在这个例子中，红色圈起来的是屏蔽词</p>
 
-<h3 id="暴力枚举">暴力枚举</h3>
-<p>固定input，滑动屏蔽词，每一个位置做一次对比。</p>
-<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>function NaiveSearch(string s[1..n], string pattern[1..m])
-   for i from 1 to n-m+1
-      for j from 1 to m
-         if s[i+j-1] ≠ pattern[j]
-            jump to next iteration of outer loop
-      return i
-   return not found
-</code></pre></div></div>
-<p>复杂度是O(NM)<br />
-在这个算法里面，屏蔽词每一次只滑动一格，实际上可以一次性滑动N格。<br />
-一次最多跳多少格？</p>
-
-<h3 id="boyermoore-string-search-algorithm">Boyer–Moore string-search algorithm</h3>
-<p>Boyer–Moore对暴力枚举中每次只滑动一格做了改进。Boyer–Moore的特点是从屏蔽词的最后一个字符开始匹配<br />
-一些符号</p>
+<p>每一个节点，需要保存两样东西</p>
 <ul>
-  <li>P: 屏蔽词或pattern，长度是n</li>
-  <li>T: 搜索的text，长度是m</li>
-  <li>alignment of P to T: T里面的一个index k，where T[k] = P[n]</li>
-  <li>match: 如果T[(k-n+1)..k] = P,那么找到了一个匹配</li>
+  <li>一个hashmap，key是字符，value是下一个节点。例如t节点可以通过加o变成to，可以通过加e变成te。</li>
+  <li>一个flag，用来表示当前节点是不是屏蔽词。例如红圈flag为true，其他为false</li>
 </ul>
 
-<p>https://people.ok.ubc.ca/ylucet/DS/BoyerMoore.html<br />
-P是从左往右滑动，但是对比的时候，是从P的右边开始对比</p>
+<h3 id="根据trie判断是否包含屏蔽词">根据trie判断是否包含屏蔽词</h3>
+<p>输入一串字符，例如”tedd abcd A inn te ted”，无视空格，空格只是方便阅读</p>
+<ul>
+  <li>首先从根节点出发，第一个字符是”t”，走到t节点，没有红圈，继续</li>
+  <li>第二个字符是e，走到te节点，没有红圈，继续</li>
+  <li>第三个字符是d，走到ted节点，没有红圈，继续</li>
+  <li>第四个字符是d，但是ted节点已经没有子节点了，证明tedd一定不在屏蔽词树里面，回到根节点</li>
+  <li>第五个字符是a，根节点没有a，证明a开头的词一定不是屏蔽词，回到根节点</li>
+  <li>第六个字符是b，根节点也没有b，同上</li>
+  <li>第七第八个同上</li>
+  <li>第九个字符是i，走到i节点，没有红圈，继续</li>
+  <li>第十个字符是n，走到in节点，有红圈，发现屏蔽词in</li>
+</ul>
 
-<h4 id="滑动规则">滑动规则</h4>
-<p>滑动规则根据bad character rule和good suffix rule决定。<br />
-bad character rule<br />
-<img src="/assets/boyer-moore-bad-character.png" alt="" />
-当这样对齐的时候，从右往左匹配，N A M都一样，然后N和A不一样。把T中不匹配的标记成红色，这个称为bad character。<br />
-出现bad character的时候，在bad character左边部分的P找下一个相同的字符（图中第二行蓝色的N）。<br />
-然后把P滑动到蓝色和红色对齐的位置。 <br />
-如果没有在左边部分P找到相同的字符，直接把P滑动到越过bad character的位置。</p>
+<h3 id="scala构建trie">scala构建trie</h3>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>case class TrieNode(map: mutable.Map[Char, TrieNode], isProfanity: Boolean) {
+  def addProfanityWord(word: String): Unit = {
+    val chars = word.toCharArray
 
-<p>为什么可以这样滑？（往右滑动了两格）
-P想要匹配，就必须要有一个N跟红色的N对齐，因为P是从左往右滑的，所以右边部分的P全部不用考虑。<br />
-如果P的左边部分没有N，证明这个红色N是一定匹配不到了，可以把P滑动到越过红色点。</p>
+    chars match {
+      case Array(h) ⇒ map.put(h, TrieNode.profanityNode)
+      case Array(h, _*) ⇒
+        val nextNode = map.getOrElse(h, TrieNode.emptyNode)
+        nextNode.addProfanityWord(word.tail)
+        map.put(h, nextNode)
+    }
+  }
+}
 
-<p>good suffix rule<br />
-<img src="/assets/boyer-moore-good-suffix.png" alt="" /></p>
+object TrieNode {
+
+  def profanityNode = TrieNode(mutable.Map(), true)
+
+  def emptyNode = TrieNode(mutable.Map(), false)
+}
+</code></pre></div></div>
+
+<h3 id="scala根据trie判断">scala根据trie判断</h3>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>class WordFilter(rootNode: TrieNode) {
+
+  def testProfanity(toTest: String): Boolean = {
+    var currentNode = rootNode
+
+    for (char ← toTest) {
+      if (currentNode.map.contains(char)) {
+        currentNode = currentNode.map(char)
+        if (currentNode.isProfanity) return true
+      } else {
+        currentNode = rootNode
+      }
+    }
+
+    false
+  }
+}
+</code></pre></div></div>
+
+<p>测试代码</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>object WordFilter extends App {
+  val rootNode = TrieNode(mutable.Map(), isProfanity = false)
+  rootNode.addProfanityWord("fuck")
+  rootNode.addProfanityWord("fick")
+  rootNode.addProfanityWord("shit")
+  rootNode.addProfanityWord("微商")
+
+  val filter = new WordFilter(rootNode)
+  val res1 = filter.testProfanity("i am fucking awesome")
+  val res2 = filter.testProfanity("shiit, this should pass")
+  val res3 = filter.testProfanity("ganz gut, fick dich")
+  val res4 = filter
+  println(res1)
+  println(res2)
+  println(res3)
+}
+</code></pre></div></div>
 
 
 
