@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Begin Jekyll SEO tag v2.5.0 -->
+<title>scala实现profanity filter | wtf</title>
+<meta name="generator" content="Jekyll v3.7.4" />
+<meta property="og:title" content="scala实现profanity filter" />
+<meta name="author" content="Lin ZiHao" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="profanity filter的目标是在一大段文本中，判断是否存在屏蔽词，本质上是字符串搜索算法 一些符号和变量 input: 输入的一大段文本 N: input的长度 profanityWords: 屏蔽词列表 M: 屏蔽词的平均长度" />
+<meta property="og:description" content="profanity filter的目标是在一大段文本中，判断是否存在屏蔽词，本质上是字符串搜索算法 一些符号和变量 input: 输入的一大段文本 N: input的长度 profanityWords: 屏蔽词列表 M: 屏蔽词的平均长度" />
+<link rel="canonical" href="http://localhost:4000/algorithm/2018/12/07/string-search-1.html" />
+<meta property="og:url" content="http://localhost:4000/algorithm/2018/12/07/string-search-1.html" />
+<meta property="og:site_name" content="wtf" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2018-12-07T15:43:59+08:00" />
+<script type="application/ld+json">
+{"url":"http://localhost:4000/algorithm/2018/12/07/string-search-1.html","author":{"@type":"Person","name":"Lin ZiHao"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"http://localhost:4000/assets/logo.png"},"name":"Lin ZiHao"},"headline":"scala实现profanity filter","description":"profanity filter的目标是在一大段文本中，判断是否存在屏蔽词，本质上是字符串搜索算法 一些符号和变量 input: 输入的一大段文本 N: input的长度 profanityWords: 屏蔽词列表 M: 屏蔽词的平均长度","datePublished":"2018-12-07T15:43:59+08:00","dateModified":"2018-12-07T15:43:59+08:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/algorithm/2018/12/07/string-search-1.html"},"@type":"BlogPosting","@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="stylesheet" href="/assets/css/style.css?v=c004306e1d3e619746776e920d83e62c5ccf0eb7">
+    <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1><a href="http://localhost:4000/">wtf</a></h1>
+        
+        
+          <img src="/assets/logo.png" alt="Logo" />
+        
+
+        <p>desc....</p>
+
+        
+        <p class="view"><a href="http://github.com/schneiderlin/schneiderlin.github.io">View the Project on GitHub <small>schneiderlin/schneiderlin.github.io</small></a></p>
+        
+
+        
+
+        
+      </header>
+      <section>
+
+      <small>7 December 2018</small>
+<h1>scala实现profanity filter</h1>
+
+<p class="view">by linzihao</p>
+
+<p>profanity filter的目标是在一大段文本中，判断是否存在屏蔽词，本质上是字符串搜索算法<br />
+一些符号和变量</p>
+<ul>
+  <li>input: 输入的一大段文本</li>
+  <li>N: input的长度</li>
+  <li>profanityWords: 屏蔽词列表</li>
+  <li>M: 屏蔽词的平均长度</li>
+</ul>
+
+<p>首先考虑只有一个屏蔽词，例如从”xxxxxxxxxxxx fuk xxxxxxxxx”中判断是否有屏蔽词”fuk”。</p>
+
+<h3 id="暴力枚举">暴力枚举</h3>
+<p>固定input，滑动屏蔽词，每一个位置做一次对比。</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>function NaiveSearch(string s[1..n], string pattern[1..m])
+   for i from 1 to n-m+1
+      for j from 1 to m
+         if s[i+j-1] ≠ pattern[j]
+            jump to next iteration of outer loop
+      return i
+   return not found
+</code></pre></div></div>
+<p>复杂度是O(NM)<br />
+在这个算法里面，屏蔽词每一次只滑动一格，实际上可以一次性滑动N格。<br />
+一次最多跳多少格？</p>
+
+<h3 id="boyermoore-string-search-algorithm">Boyer–Moore string-search algorithm</h3>
+<p>Boyer–Moore对暴力枚举中每次只滑动一格做了改进。Boyer–Moore的特点是从屏蔽词的最后一个字符开始匹配<br />
+一些符号</p>
+<ul>
+  <li>P: 屏蔽词或pattern，长度是n</li>
+  <li>T: 搜索的text，长度是m</li>
+  <li>alignment of P to T: T里面的一个index k，where T[k] = P[n]</li>
+  <li>match: 如果T[(k-n+1)..k] = P,那么找到了一个匹配</li>
+</ul>
+
+<p>https://people.ok.ubc.ca/ylucet/DS/BoyerMoore.html<br />
+P是从左往右滑动，但是对比的时候，是从P的右边开始对比</p>
+
+<h4 id="滑动规则">滑动规则</h4>
+<p>滑动规则根据bad character rule和good suffix rule决定。<br />
+bad character rule<br />
+<img src="/assets/boyer-moore-bad-character.png" alt="" />
+当这样对齐的时候，从右往左匹配，N A M都一样，然后N和A不一样。把T中不匹配的标记成红色，这个称为bad character。<br />
+出现bad character的时候，在bad character左边部分的P找下一个相同的字符（图中第二行蓝色的N）。<br />
+然后把P滑动到蓝色和红色对齐的位置。 <br />
+如果没有在左边部分P找到相同的字符，直接把P滑动到越过bad character的位置。</p>
+
+<p>为什么可以这样滑？（往右滑动了两格）
+P想要匹配，就必须要有一个N跟红色的N对齐，因为P是从左往右滑的，所以右边部分的P全部不用考虑。<br />
+如果P的左边部分没有N，证明这个红色N是一定匹配不到了，可以把P滑动到越过红色点。</p>
+
+<p>good suffix rule<br />
+<img src="/assets/boyer-moore-good-suffix.png" alt="" /></p>
+
+
+
+  <small>tags: <em></em></small>
+
+
+
+      </section>
+      <footer>
+        
+        <p>This project is maintained by <a href="http://github.com/schneiderlin">schneiderlin</a></p>
+        
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="/assets/js/scale.fix.js"></script>
+    
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-125414394-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    
+  </body>
+</html>
