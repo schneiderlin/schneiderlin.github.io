@@ -5,6 +5,12 @@ author: linzihao
 categories: database
 ---
 
+## buffer ##
+一般从磁盘读取数据到process中，默认都是用了buffer，可以手动关掉buffer功能，例如c的setvbuf。
+为什么需要buffer功能？
+
+disk controller读硬盘是一次读一个block的，如果一个byte一个byte的读，disk controller需要重复读一个block很多次。如果用了buffer，disk controller会把整个block的数据存在buffer里面，每一次读byte的时候直接就变成读内存，比读硬盘快很多。
+
 ## out of core sorting and hashing ##
 RAM的大小是可以放B这么多个Page
 需要处理的数据总大小是N

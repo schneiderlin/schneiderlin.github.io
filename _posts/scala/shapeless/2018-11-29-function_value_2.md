@@ -4,7 +4,7 @@ title: "polymorphic function value 2"
 author: linzihao
 categories:
   - scala
-  - shapeless
+    - shapeless
 ---
 
 ## polymorphic function value 2 natural transformation ##

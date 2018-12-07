@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Begin Jekyll SEO tag v2.5.0 -->
+<title>polymorphic function value 1 | wtf</title>
+<meta name="generator" content="Jekyll v3.7.4" />
+<meta property="og:title" content="polymorphic function value 1" />
+<meta name="author" content="Lin ZiHao" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="polymorphic function value 1 HList中最主要的一个特征，就是支持map()操作。 这个map和scala collection List里面的操作非常的接近。" />
+<meta property="og:description" content="polymorphic function value 1 HList中最主要的一个特征，就是支持map()操作。 这个map和scala collection List里面的操作非常的接近。" />
+<link rel="canonical" href="http://localhost:4000/scala%20-%20shapeless/2018/11/28/function_value_1.html" />
+<meta property="og:url" content="http://localhost:4000/scala%20-%20shapeless/2018/11/28/function_value_1.html" />
+<meta property="og:site_name" content="wtf" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2018-11-28T00:00:00+08:00" />
+<script type="application/ld+json">
+{"url":"http://localhost:4000/scala%20-%20shapeless/2018/11/28/function_value_1.html","author":{"@type":"Person","name":"Lin ZiHao"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"http://localhost:4000/assets/logo.png"},"name":"Lin ZiHao"},"headline":"polymorphic function value 1","description":"polymorphic function value 1 HList中最主要的一个特征，就是支持map()操作。 这个map和scala collection List里面的操作非常的接近。","datePublished":"2018-11-28T00:00:00+08:00","dateModified":"2018-11-28T00:00:00+08:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/scala%20-%20shapeless/2018/11/28/function_value_1.html"},"@type":"BlogPosting","@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="stylesheet" href="/assets/css/style.css?v=c004306e1d3e619746776e920d83e62c5ccf0eb7">
+    <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1><a href="http://localhost:4000/">wtf</a></h1>
+        
+        
+          <img src="/assets/logo.png" alt="Logo" />
+        
+
+        <p>desc....</p>
+
+        
+        <p class="view"><a href="http://github.com/schneiderlin/schneiderlin.github.io">View the Project on GitHub <small>schneiderlin/schneiderlin.github.io</small></a></p>
+        
+
+        
+
+        
+      </header>
+      <section>
+
+      <small>28 November 2018</small>
+<h1>polymorphic function value 1</h1>
+
+<p class="view">by linzihao</p>
+
+<h2 id="polymorphic-function-value-1">polymorphic function value 1</h2>
+<p>HList中最主要的一个特征，就是支持map()操作。
+这个map和scala collection List里面的操作非常的接近。</p>
+
+<blockquote>
+  <p>scala&gt; import shapeless._ ; import HList._
+// List[Int]
+scala&gt; List(1, 2, 3) map singleton
+res0: List[Set[Int]] = List(Set(1), Set(2), Set(3))
+// List[String]
+scala&gt; List(“foo”, “bar”, “baz”) map singleton
+res1: List[Set[String]] = List(Set(foo), Set(bar), Set(baz))
+// HList
+scala&gt; (23 :: “foo” :: false :: HNil) map singleton
+res2: Set[Int] :: Set[String] :: Set[Boolean] :: HNil =
+      Set(23)  :: Set(foo)    :: Set(false)   :: HNil</p>
+</blockquote>
+
+<p>第一个观察是
+这里的singleton是map的参数，是一个function value，这个function能够把一个东西变成一个singleton set。</p>
+
+<p>第二个观察是
+singleton需要接收不同类型的参数(Int, String, Boolean..)，也就是说，这个function是polymorphic in argument type。</p>
+
+<p>然而所有的scala value，包括function value，都是monomorphic的。</p>
+
+<p>我们首先需要理解method-level parametric polymorphism，并且理解scala method和scala function value之间的区别。然后就可以理解，为什么标准scala的function value只能是monomorphic的。</p>
+
+<h3 id="method-level-parametric-polymorphism">method-level parametric polymorphism</h3>
+<p>最容易理解 method-level parametric polymorphism 的方式就是对比monomorphic和polymorphic的method。一个参数类型是fixed type，另一个参数类型bounded到了method-level type parameter。例如</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>// Monomorphic methods have type parameter-free signatures
+def monomorphic(s: String): Int = s.length
+
+monomorphic("foo")
+
+// Polymorphic methods have type parameters in their signatures
+def polymorphic[T](l: List[T]): Int = l.length
+
+polymorphic(List(1, 2, 3))
+polymorphic(List("foo", "bar", "baz"))
+</code></pre></div></div>
+
+<p>monomorphic method只能apply到跟fixed type一样type的参数（或者subtype），polymorphic method可以是任何满足bound的type。</p>
+
+<p>因为scala即使OOP也是FP，所以有polymorphic method加上subtype polymorphism。所以我们说的monomorphic只是parametric意义上的monomorphic。</p>
+
+<h3 id="methods-vs-function-values">methods vs function values</h3>
+<p>之前一直说的都是method，现在要讨论和function value的区别。scala method和java method一样，是class或者trait的一部分，单独拿出来不是first-class value。而function value，是JVM-level的first class class，而不是某个class的一部分。
+因此可以作为argument传入higher-order function。</p>
+
+<p>然而，scala method可以非常像function。特别是在modules object里面，或者在另一个method/function定义里面。在这些情况下，这些method看起来是free floating的，没有传统OOP的left-hand-side “receiver”。并且可以用在higher-order function里面。例如</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>scala&gt; object Module {
+     |   def stringSingleton(s: String) = Set(s)
+     | }
+defined module Module
+
+scala&gt; import Module._
+import Module._
+
+scala&gt; stringSingleton("foo")
+res0: Set[String] = Set(foo)
+
+scala&gt; List("foo", "bar", "baz") map stringSingleton
+res1: List[Set[String]] = List(Set(foo), Set(bar), Set(baz))
+</code></pre></div></div>
+
+<p>这个singleton看起来就是一个function value，然而并不是。这个method不是free-standing的：这个method会引用会Module，并且传进去的不是这个method，而是implicitly创建了一个函数调用singleton()方法(eta-expansion)，然后把这个创建出来的函数传入map。</p>
+
+<p>这个机制一般是透明的，我们可以让scala编译器explicit的给一个eta-expand后的function value，这样就可以给他名字和检查他的类型。</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>scala&gt; val stringSingletonFn = stringSingleton _
+stringSingletonFn: (String) =&gt; Set[String] = &lt;function1&gt;
+
+scala&gt; stringSingletonFn("foo")
+res2: Set[String] = Set(foo)
+
+scala&gt; List("foo", "bar", "baz") map stringSingletonFn
+res3: List[Set[String]] = List(Set(foo), Set(bar), Set(baz))
+</code></pre></div></div>
+<p>现在可以看到type是String =&gt; Set[String].</p>
+
+<p>在这个例子中，mothod和eta-expanded function value都是monomorphic的，试一下polymorphic的method会怎么样</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>scala&gt; def singleton[T](t: T) = Set(t)
+singleton: [T](t: T)Set[T]
+
+scala&gt; singleton("foo")
+res4: Set[java.lang.String] = Set(foo)
+
+scala&gt; singleton(23)
+res5: Set[Int] = Set(23)
+</code></pre></div></div>
+<p>这个是method，现在来看一下function value</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>scala&gt; val singletonFn = singleton _
+singletonFn: (Nothing) =&gt; Set[Nothing] = &lt;function1&gt;
+
+scala&gt; singletonFn("foo")
+&lt;console&gt;:14: error: type mismatch;
+ found   : java.lang.String("foo")
+ required: Nothing
+       singletonFn("foo")
+                   ^
+
+scala&gt; singletonFn(23)
+&lt;console&gt;:14: error: type mismatch;
+ found   : Int(23)
+ required: Nothing
+       singletonFn(23)
+</code></pre></div></div>
+<p>为什么这里singletonFn的type会变成了Nothing =&gt; Set[Nothing]，需要看scala的function type和怎么表示function value的。</p>
+
+<h3 id="scala-function-types">scala function types</h3>
+<p>scala融合了OOP的一个好处是，String =&gt; Set[String]其实只是FunctionN的一个语法糖，在这里是Function1</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>trait Function1[-T, +R] {
+  def apply(v: T): R
+}
+
+val stringSingletonFn = new Function1[String, Set[String]] {
+  def apply(v: String): Set[String] = Module.stringSingleton(v)
+}
+</code></pre></div></div>
+<p>这里的关键点是，function的参数类型和返回类型都是在trait level定义的，这有两个后果。
+第一，当我们创建一个Function1实例(或者编译器创建)的时候，必须在当时就决定参数和返回类型。在上面eta-expansion的时候，我们没有明确表示参数类型，所以编译器不会推断，填了一个Nothing进去。
+第二，在创建Function1实例的时候，类型就已经固定死了。看下面这个例子，虽然singleton是poly的，但是转换成Function1的时候固定了。</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>scala&gt; val singletonFn: String =&gt; Set[String] = singleton _
+singletonFn: (String) =&gt; Set[String] = &lt;function1&gt;
+
+scala&gt; singletonFn("foo")
+res6: Set[String] = Set(foo)
+
+scala&gt; singletonFn(23)
+&lt;console&gt;:14: error: type mismatch;
+ found   : Int(23)
+ required: String
+       singletonFn(23)
+</code></pre></div></div>
+
+<p>回到一开始的例子</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>scala&gt; def singleton[T](t: T) = Set(t)
+singleton: [T](t: T)Set[T]
+
+// eta-expanded to Int =&gt; Set[Int]
+scala&gt; List(1, 2, 3) map singleton
+res0: List[Set[Int]] = List(Set(1), Set(2), Set(3))
+
+// eta-expanded to String =&gt; Set[String]
+scala&gt; List("foo", "bar", "baz") map singleton
+res1: List[Set[String]] = List(Set(foo), Set(bar), Set(baz))
+</code></pre></div></div>
+<p>polymorphic method每一次都会eta-expanded，然后传进map，每因为List的每一个元素都是相同type，所以没问题。</p>
+
+<p>在HList的时候，因为只调用了map一次，所以只有一次eta-expansion的机会。这个Function1只能有一个fixed type，爆炸。</p>
+
+<p>现在的问题是，有first-class的monomorphic function value，second-class的polymorphic method，但是没有first-class的polymorphic function value。</p>
+
+<p>下一章讲怎么在scala中支持polymorphic function value</p>
+
+
+
+  <small>tags: <em></em></small>
+
+
+
+      </section>
+      <footer>
+        
+        <p>This project is maintained by <a href="http://github.com/schneiderlin">schneiderlin</a></p>
+        
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="/assets/js/scale.fix.js"></script>
+    
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-125414394-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    
+  </body>
+</html>

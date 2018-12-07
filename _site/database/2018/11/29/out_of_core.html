@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Begin Jekyll SEO tag v2.5.0 -->
+<title>sort/hash超出内存大小如何处理 | wtf</title>
+<meta name="generator" content="Jekyll v3.7.4" />
+<meta property="og:title" content="sort/hash超出内存大小如何处理" />
+<meta name="author" content="Lin ZiHao" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="buffer 一般从磁盘读取数据到process中，默认都是用了buffer，可以手动关掉buffer功能，例如c的setvbuf。 为什么需要buffer功能？" />
+<meta property="og:description" content="buffer 一般从磁盘读取数据到process中，默认都是用了buffer，可以手动关掉buffer功能，例如c的setvbuf。 为什么需要buffer功能？" />
+<link rel="canonical" href="http://localhost:4000/database/2018/11/29/out_of_core.html" />
+<meta property="og:url" content="http://localhost:4000/database/2018/11/29/out_of_core.html" />
+<meta property="og:site_name" content="wtf" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2018-11-29T00:00:00+08:00" />
+<script type="application/ld+json">
+{"url":"http://localhost:4000/database/2018/11/29/out_of_core.html","author":{"@type":"Person","name":"Lin ZiHao"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"http://localhost:4000/assets/logo.png"},"name":"Lin ZiHao"},"headline":"sort/hash超出内存大小如何处理","description":"buffer 一般从磁盘读取数据到process中，默认都是用了buffer，可以手动关掉buffer功能，例如c的setvbuf。 为什么需要buffer功能？","datePublished":"2018-11-29T00:00:00+08:00","dateModified":"2018-11-29T00:00:00+08:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/database/2018/11/29/out_of_core.html"},"@type":"BlogPosting","@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="stylesheet" href="/assets/css/style.css?v=c004306e1d3e619746776e920d83e62c5ccf0eb7">
+    <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1><a href="http://localhost:4000/">wtf</a></h1>
+        
+        
+          <img src="/assets/logo.png" alt="Logo" />
+        
+
+        <p>desc....</p>
+
+        
+        <p class="view"><a href="http://github.com/schneiderlin/schneiderlin.github.io">View the Project on GitHub <small>schneiderlin/schneiderlin.github.io</small></a></p>
+        
+
+        
+
+        
+      </header>
+      <section>
+
+      <small>29 November 2018</small>
+<h1>sort/hash超出内存大小如何处理</h1>
+
+<p class="view">by linzihao</p>
+
+<h2 id="buffer">buffer</h2>
+<p>一般从磁盘读取数据到process中，默认都是用了buffer，可以手动关掉buffer功能，例如c的setvbuf。
+为什么需要buffer功能？</p>
+
+<p>disk controller读硬盘是一次读一个block的，如果一个byte一个byte的读，disk controller需要重复读一个block很多次。如果用了buffer，disk controller会把整个block的数据存在buffer里面，每一次读byte的时候直接就变成读内存，比读硬盘快很多。</p>
+
+<h2 id="out-of-core-sorting-and-hashing">out of core sorting and hashing</h2>
+<p>RAM的大小是可以放B这么多个Page
+需要处理的数据总大小是N</p>
+
+<p>有1个page用来做input buffer，1个page用来output buffer。
+因为磁盘处理速度和CPU处理速度不同，所有要有这两个buffer。
+存放数据的空间就剩下B-2个page</p>
+
+<h3 id="out-of-core-sorting">out-of-core sorting</h3>
+<p>顺序的读所有要sort的内容，一次读B个，然后在memory里面sorted，写出去。
+这样处理完之后，就有N/B个sorted block。</p>
+
+<p>如果两个两个的把sorted block读进内存，在内存中做linear merge然后写出磁盘。这样磁盘里面就会有N/2B个sorted block。
+这样的一次操作叫做一个phrase。</p>
+
+<p><img src="https://i.imgur.com/jWiKLKd.png" alt="" />
+每一个横线隔开是一个phrase，每一个phrase里面都读了所有全部的数据N，phrase的个数是log_{2}(N/B)个。</p>
+
+<p>如果一次读入B-1个sorted block，phrase的个数就是log_{B-1}(N/B)个。</p>
+
+<p>两次pass可以sort多大的数据？
+也就是一个phrase可以sort多少，取决于block的数量
+也就是B-1必须大于等于N/B，当等于的时候最大。
+N = B(B-1)，也就是sort N需要根号N的空间</p>
+
+<h3 id="out-of-core-hashing">out-of-core hashing</h3>
+<p>为什么要用out-of-core hashing？</p>
+
+<p>顺序的读所有内容，然后用hash function Hp()把N partition成N/B份，使得每一份的内容小于B。</p>
+
+<p>然后把每一份读进内存，然后就是in memory的hash。
+如果partition之后，一份的大小还是不能放进memory，就可以把每一份当成N，然后recursive的调用out-of-core hash。</p>
+
+<p>有一个假设是数据本身是可以分开的，如果相同的hash内容太多，就没办法分成N/B份，例如性别只能分成两份。</p>
+
+<p>如果一次过不需要recursion，可以hash多少数据？
+每一份的大小不能超过(B-1)
+也就是N/B要小于等于(B-1)，当等于的时候N最大
+N = B(B-1)，和sort一样</p>
+
+<h3 id="sort和hash的对比">sort和hash的对比</h3>
+<p>sort和hash是dual
+sort是顺序读N，然后顺序写N/B个block，然后顺序读merge？？</p>
+
+<p>hash是顺序读N，然后随机的写到N/B个block中，然后顺序读每一个</p>
+
+<h3 id="notation">notation</h3>
+<ul>
+  <li>[R], number of pages to store R</li>
+  <li>Pr，number of records per page of R</li>
+  <li>
+    <table>
+      <tbody>
+        <tr>
+          <td>R</td>
+          <td>，number of records in R</td>
+        </tr>
+      </tbody>
+    </table>
+  </li>
+</ul>
+
+<table>
+  <tbody>
+    <tr>
+      <td>[R] * Pr =</td>
+      <td>R</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="nested-loop">nested loop</h3>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>foreach record r in R
+	foreach record s in S
+		if θ(r, s) then add &lt;r, s&gt; to result
+</code></pre></div></div>
+<p>|R|<em>[S] + [R]
+|S|</em>[R] + [S] smaller</p>
+
+<p>如果[S]可以整个放进内存，可以读一次[S]然后就存在内存里，然后每一个r进来对比一次。cost是[S] + [R]</p>
+
+<p>每一个r tuple都要读一次[S]太多了</p>
+
+<h3 id="page-oriented-nestled-loop">page-oriented nestled loop</h3>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>foreach page br in R
+	foreach page bs in S
+		foreach record r in br
+			foreach record s in bs
+				if θ(r, s) then add &lt;r, s&gt; to result
+</code></pre></div></div>
+<p>[R] * [S] + [R]</p>
+
+<p>如果内存够大，应该一次尽量读多几页的R</p>
+
+<h3 id="chunk-nested-loop">chunk nested loop</h3>
+<p>一次读进B-2页的R，然后同上
+([R] / B-2) * [S] + [R]</p>
+
+<h2 id="equil-join-的一些优化">equil join 的一些优化</h2>
+<p>如果Θ是一个equality test，为什么我要扫描整个表，我可以先对要look up的表排序，然后binary search</p>
+
+<h3 id="index-nested-loop">index nested loop</h3>
+<p>不需要扫描整个S，然后做θ测试了，直接通过index在S中找到符合条件的record，然后加到result中</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>foreach tuple r in R
+	foreach tuple s in S where rk == sk
+		add &lt;r, s&gt; to result
+</code></pre></div></div>
+<p>|R| * cost to find maching S + [R]</p>
+
+<h3 id="sort-merge-join">sort merge join</h3>
+<p>sort S, R，然后merge的时候，顺便输出
+适用于equil join</p>
+
+<h3 id="hash-join">hash join</h3>
+<p>hash 较小的S，把小的partition留在内存中，然后stream另一个，做hash的lookup</p>
+
+
+
+  <small>tags: <em></em></small>
+
+
+
+      </section>
+      <footer>
+        
+        <p>This project is maintained by <a href="http://github.com/schneiderlin">schneiderlin</a></p>
+        
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="/assets/js/scale.fix.js"></script>
+    
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-125414394-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    
+  </body>
+</html>

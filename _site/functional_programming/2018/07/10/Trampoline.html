@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Begin Jekyll SEO tag v2.5.0 -->
+<title>Trampoline, FP如何解决递归栈溢出 | wtf</title>
+<meta name="generator" content="Jekyll v3.7.4" />
+<meta property="og:title" content="Trampoline, FP如何解决递归栈溢出" />
+<meta name="author" content="Lin ZiHao" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Trampoline 在递归很深的时候，可以用尾递归和Trampoline解决栈溢出的问题，虽然Trampoline比直接写尾递归要慢，但是代码的可读性会好很多。" />
+<meta property="og:description" content="Trampoline 在递归很深的时候，可以用尾递归和Trampoline解决栈溢出的问题，虽然Trampoline比直接写尾递归要慢，但是代码的可读性会好很多。" />
+<link rel="canonical" href="http://localhost:4000/functional_programming/2018/07/10/Trampoline.html" />
+<meta property="og:url" content="http://localhost:4000/functional_programming/2018/07/10/Trampoline.html" />
+<meta property="og:site_name" content="wtf" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2018-07-10T00:00:00+08:00" />
+<script type="application/ld+json">
+{"url":"http://localhost:4000/functional_programming/2018/07/10/Trampoline.html","author":{"@type":"Person","name":"Lin ZiHao"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"http://localhost:4000/assets/logo.png"},"name":"Lin ZiHao"},"headline":"Trampoline, FP如何解决递归栈溢出","description":"Trampoline 在递归很深的时候，可以用尾递归和Trampoline解决栈溢出的问题，虽然Trampoline比直接写尾递归要慢，但是代码的可读性会好很多。","datePublished":"2018-07-10T00:00:00+08:00","dateModified":"2018-07-10T00:00:00+08:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/functional_programming/2018/07/10/Trampoline.html"},"@type":"BlogPosting","@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="stylesheet" href="/assets/css/style.css?v=c004306e1d3e619746776e920d83e62c5ccf0eb7">
+    <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1><a href="http://localhost:4000/">wtf</a></h1>
+        
+        
+          <img src="/assets/logo.png" alt="Logo" />
+        
+
+        <p>desc....</p>
+
+        
+        <p class="view"><a href="http://github.com/schneiderlin/schneiderlin.github.io">View the Project on GitHub <small>schneiderlin/schneiderlin.github.io</small></a></p>
+        
+
+        
+
+        
+      </header>
+      <section>
+
+      <small>10 July 2018</small>
+<h1>Trampoline, FP如何解决递归栈溢出</h1>
+
+<p class="view">by linzihao</p>
+
+<h2 id="trampoline">Trampoline</h2>
+<p>在递归很深的时候，可以用尾递归和Trampoline解决栈溢出的问题，虽然Trampoline比直接写尾递归要慢，但是代码的可读性会好很多。</p>
+
+<p>由于用了Trampoline之后，调用递归代码时，栈的深度一直在1和2之间跳跃，直到递归结束。所以叫Trampoline。</p>
+
+<h3 id="一个会栈溢出的例子">一个会栈溢出的例子</h3>
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="n">even</span><span class="o">(</span><span class="n">n</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span><span class="k">:</span> <span class="kt">Boolean</span> <span class="o">=</span> <span class="n">n</span> <span class="k">match</span> <span class="o">{</span>
+	<span class="k">case</span> <span class="mi">0</span> <span class="k">=&gt;</span> <span class="kc">true</span>
+	<span class="k">case</span> <span class="k">_</span> <span class="k">=&gt;</span> <span class="n">odd</span><span class="o">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="o">)</span>
+<span class="o">}</span>
+<span class="k">def</span> <span class="n">odd</span><span class="o">(</span><span class="n">n</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span><span class="k">:</span> <span class="kt">Boolean</span> <span class="o">=</span> <span class="n">n</span> <span class="k">match</span> <span class="o">{</span>
+	<span class="k">case</span> <span class="mi">0</span> <span class="k">=&gt;</span> <span class="kc">false</span>
+	<span class="k">case</span> <span class="k">_</span> <span class="k">=&gt;</span> <span class="n">even</span><span class="o">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="o">)</span>
+<span class="o">}</span>
+</code></pre></div></div>
+<p>在这个判断某个整数n是否为偶数的例子中，even和odd互相调用，当输入n很大的时候，就会出现栈溢出。</p>
+
+<h3 id="trampoline改写例子">Trampoline改写例子</h3>
+<p>Trampoline的思想是每一次递归的时候，返回一个计算的状态。稍后可以从这个状态开始，继续计算下去。
+在这个例子中，计算的状态就是even或者odd，还有输入n。</p>
+
+<p>现在定义一个存放状态的trait，叫做Trampoline，A代表计算结果的返回类型
+Even和Odd是两种状态，所以extends Trampoline
+另外还要加上一个完成的状态Done</p>
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">trait</span> <span class="nc">Trampoline</span><span class="o">[</span><span class="kt">A</span><span class="o">]</span> <span class="o">{}</span>
+<span class="k">case</span> <span class="k">class</span> <span class="nc">Even</span><span class="o">(</span><span class="n">n</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span> <span class="k">extends</span> <span class="nc">Trampoline</span><span class="o">[</span><span class="kt">Boolean</span><span class="o">]</span>
+<span class="k">case</span> <span class="k">class</span> <span class="nc">Odd</span><span class="o">(</span><span class="n">n</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span> <span class="k">extends</span> <span class="nc">Trampoline</span><span class="o">[</span><span class="kt">Boolean</span><span class="o">]</span>
+<span class="k">case</span> <span class="k">class</span> <span class="nc">Done</span><span class="o">[</span><span class="kt">A</span><span class="o">](</span><span class="n">b</span><span class="k">:</span> <span class="kt">A</span><span class="o">)</span> <span class="k">extends</span> <span class="nc">Trampoline</span><span class="o">[</span><span class="kt">A</span><span class="o">]</span>
+</code></pre></div></div>
+
+<p>有了状态之后，现在就可以改写even和odd函数，使得这两个函数返回一个状态，而不是直接返回结果。</p>
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="n">even</span><span class="o">(</span><span class="n">n</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span><span class="k">:</span> <span class="kt">Trampoline</span><span class="o">[</span><span class="kt">Boolean</span><span class="o">]</span> <span class="k">=</span> <span class="n">n</span> <span class="k">match</span> <span class="o">{</span>
+	<span class="k">case</span> <span class="mi">0</span> <span class="k">=&gt;</span> <span class="nc">Done</span><span class="o">(</span><span class="kc">true</span><span class="o">)</span>
+	<span class="k">case</span> <span class="k">_</span> <span class="k">=&gt;</span> <span class="nc">Odd</span><span class="o">(</span><span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="o">)</span>
+<span class="o">}</span>
+<span class="k">def</span> <span class="n">odd</span><span class="o">(</span><span class="n">n</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span><span class="k">:</span> <span class="kt">Trampoline</span><span class="o">[</span><span class="kt">Boolean</span><span class="o">]</span> <span class="k">=</span> <span class="n">n</span> <span class="k">match</span> <span class="o">{</span>
+	<span class="k">case</span> <span class="mi">0</span> <span class="k">=&gt;</span> <span class="nc">Done</span><span class="o">(</span><span class="kc">false</span><span class="o">)</span>
+	<span class="k">case</span> <span class="k">_</span> <span class="k">=&gt;</span> <span class="nc">Even</span><span class="o">(</span><span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="o">)</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>由于现在even和odd返回的是一个Trampoline[Boolean]，不是最终的结果，所以我们需要给Trampoline定义一个run方法。只要有一个计算状态，就可以从这个状态开始run。</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">trait</span> <span class="nc">Trampoline</span><span class="o">[</span><span class="kt">A</span><span class="o">]</span> <span class="o">{</span>
+	<span class="k">def</span> <span class="n">run</span><span class="k">:</span> <span class="kt">A</span> <span class="o">=</span> <span class="k">this</span> <span class="k">match</span> <span class="o">{</span>
+	    <span class="k">case</span> <span class="nc">Done</span><span class="o">(</span><span class="n">result</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">result</span>
+	    <span class="k">case</span> <span class="n">even</span><span class="k">:</span> <span class="kt">Even</span> <span class="o">=&gt;</span> <span class="n">even</span><span class="o">.</span><span class="n">run</span>
+	    <span class="k">case</span> <span class="n">odd</span><span class="k">:</span> <span class="kt">Odd</span> <span class="o">=&gt;</span> <span class="n">odd</span><span class="o">.</span><span class="n">run</span>
+	  <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+<p>可以看出</p>
+
+<h3 id="总结">总结</h3>
+<p>用Trampoline可以把状态</p>
+
+
+
+  <small>tags: <em></em></small>
+
+
+
+      </section>
+      <footer>
+        
+        <p>This project is maintained by <a href="http://github.com/schneiderlin">schneiderlin</a></p>
+        
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="/assets/js/scale.fix.js"></script>
+    
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-125414394-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    
+  </body>
+</html>

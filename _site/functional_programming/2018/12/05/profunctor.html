@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Begin Jekyll SEO tag v2.5.0 -->
+<title>Profunctor | wtf</title>
+<meta name="generator" content="Jekyll v3.7.4" />
+<meta property="og:title" content="Profunctor" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Produnctor是𝐂𝑜𝑝 × 𝐃 → 𝐒𝐞𝐭，类似bifunctor也是从一个product of category到category的mapping。 不过product里面的第一个category变成了Cop,相当于一个contravariant functor和一个covariant functor的组合。 ``` trait Profunctor[F[_, _]] { def bimap[A, B, C, D]: (A =&gt; B) =&gt; (C =&gt; D) =&gt; F[B, C] =&gt; F[A, D] = f =&gt; g =&gt; lmap(f) compose rmapB, C, D" />
+<meta property="og:description" content="Produnctor是𝐂𝑜𝑝 × 𝐃 → 𝐒𝐞𝐭，类似bifunctor也是从一个product of category到category的mapping。 不过product里面的第一个category变成了Cop,相当于一个contravariant functor和一个covariant functor的组合。 ``` trait Profunctor[F[_, _]] { def bimap[A, B, C, D]: (A =&gt; B) =&gt; (C =&gt; D) =&gt; F[B, C] =&gt; F[A, D] = f =&gt; g =&gt; lmap(f) compose rmapB, C, D" />
+<link rel="canonical" href="http://localhost:4000/functional_programming/2018/12/05/profunctor.html" />
+<meta property="og:url" content="http://localhost:4000/functional_programming/2018/12/05/profunctor.html" />
+<meta property="og:site_name" content="wtf" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2018-12-05T10:01:09+08:00" />
+<script type="application/ld+json">
+{"url":"http://localhost:4000/functional_programming/2018/12/05/profunctor.html","publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"http://localhost:4000/assets/logo.png"}},"headline":"Profunctor","description":"Produnctor是𝐂𝑜𝑝 × 𝐃 → 𝐒𝐞𝐭，类似bifunctor也是从一个product of category到category的mapping。 不过product里面的第一个category变成了Cop,相当于一个contravariant functor和一个covariant functor的组合。 ``` trait Profunctor[F[_, _]] { def bimap[A, B, C, D]: (A =&gt; B) =&gt; (C =&gt; D) =&gt; F[B, C] =&gt; F[A, D] = f =&gt; g =&gt; lmap(f) compose rmapB, C, D","datePublished":"2018-12-05T10:01:09+08:00","dateModified":"2018-12-05T10:01:09+08:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/functional_programming/2018/12/05/profunctor.html"},"@type":"BlogPosting","@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="stylesheet" href="/assets/css/style.css?v=c004306e1d3e619746776e920d83e62c5ccf0eb7">
+    <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1><a href="http://localhost:4000/">wtf</a></h1>
+        
+        
+          <img src="/assets/logo.png" alt="Logo" />
+        
+
+        <p>desc....</p>
+
+        
+        <p class="view"><a href="http://github.com/schneiderlin/schneiderlin.github.io">View the Project on GitHub <small>schneiderlin/schneiderlin.github.io</small></a></p>
+        
+
+        
+
+        
+      </header>
+      <section>
+
+      <small>5 December 2018</small>
+<h1>Profunctor</h1>
+
+<p class="view">by </p>
+
+<p>Produnctor是𝐂𝑜𝑝 × 𝐃 → 𝐒𝐞𝐭，类似bifunctor也是从一个product of category到category的mapping。
+不过product里面的第一个category变成了Cop,相当于一个contravariant functor和一个covariant functor的组合。</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>trait Profunctor[F[_, _]] {
+  def bimap[A, B, C, D]: (A =&gt; B) =&gt; (C =&gt; D) =&gt; F[B, C] =&gt; F[A, D] =
+    f =&gt; g =&gt; lmap(f) compose rmap[B, C, D](g)
+
+  def lmap[A, B, C]: (A =&gt; B) =&gt; F[B, C] =&gt; F[A, C] =
+    f =&gt; bimap(f)(identity[C])
+
+  def rmap[A, B, C]: (B =&gt; C) =&gt; F[A, B] =&gt; F[A, C] =
+    bimap[A, A, B, C](identity[A])
+}
+</code></pre></div></div>
+<p><img src="/assets/profunctor1.png" alt="" /></p>
+
+<p>function type就是profunctor的一个instance
+一开始是B =&gt; C的函数，指定return type如何map(C =&gt; D)和argument type如何map(A =&gt; B)，然后就能得到一个A =&gt; D的函数。</p>
+
+<p>profunctor在len的时候用到，并且跟end和co-end有关系</p>
+
+
+
+  <small>tags: <em></em></small>
+
+
+
+      </section>
+      <footer>
+        
+        <p>This project is maintained by <a href="http://github.com/schneiderlin">schneiderlin</a></p>
+        
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="/assets/js/scale.fix.js"></script>
+    
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-125414394-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    
+  </body>
+</html>
