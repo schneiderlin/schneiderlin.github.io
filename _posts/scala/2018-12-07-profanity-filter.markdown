@@ -2,7 +2,7 @@
 layout: post
 title: "scala实现profanity filter"
 date: "2018-12-07 15:43:59 +0800"
-category: algorithm
+category: scala
 author: linzihao
 ---
 
