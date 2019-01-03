@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "recursive-schema-catamorphism"
+title: "用catamorphism把recursive抽象出来"
 date: "2019-01-03 15:25:33 +0800"
 author: linzihao
 categories: functional_programming

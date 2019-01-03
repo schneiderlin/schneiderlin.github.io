@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "functionK"
+title: "free functor/monad"
 author: linzihao
 categories: functional_programming
 date: "2019-01-02 11:03:38 +0800"
