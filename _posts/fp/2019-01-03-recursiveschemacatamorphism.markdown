@@ -144,6 +144,9 @@ def cata[F[_], A](structure: Fix[F])(algebra: F[A] => A)(implicit F: Functor[F])
 
 ### 一些例子
 > 注意前面例子中用的IntList重命名为IntListF，IntList是一个type alias，提高可读性
+
+
+
 #### IntList
 ```
 sealed trait IntListF[+F]
