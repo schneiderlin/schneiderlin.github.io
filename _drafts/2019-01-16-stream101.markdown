@@ -1,0 +1,20 @@
+---
+layout: post
+title: "stream-101"
+date: "2019-01-16 15:54:41 +0800"
+---
+
+event time fix-size window
+process time fix-size window
+event time dynamic window(session window)
+
+watermark是一个函数，f(process time) -> event time
+有一种trigger是watermark超过了end(event time window)，这种叫做on-time。
+
+一个window的一次输出叫做一个pane，在on-time之前，为了防止watermark走得很慢，用fix interval
+timeout作为early trigger。在on-time之后，可以把trigger替换成on-count的，一般是on-count(1)，
+只要看到一个late data就fire一次。
+
+如果有perfect的watermark，就可以知道哪个event time window是还没结束的，保持这个window一直开启。
+如果只有heuristic的watermark，还要设置多一个close window timeout，timeout之后的late data都是
+直接drop。

@@ -13,7 +13,7 @@ categories: functional_programming
 ```
 def sumList(l: List[Int]): Int = l match {
   case Cons(h, t) => h + sumList(t)
-  case Nil => Nil
+  case Nil => 0
 }
 ```
 在这里sub-structure就是tail，也是一个List，需要对tail递归的调用sumList，得到返回值之后，再和当前这一层的

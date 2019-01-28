@@ -161,7 +161,7 @@ res0: List[Set[Int]] = List(Set(1), Set(2), Set(3))
 scala> List("foo", "bar", "baz") map singleton
 res1: List[Set[String]] = List(Set(foo), Set(bar), Set(baz))
 ```
-polymorphic method每一次都会eta-expanded，然后传进map，每因为List的每一个元素都是相同type，所以没问题。
+polymorphic method每一次都会eta-expanded，然后传进map，因为List的每一个元素都是相同type，所以没问题。
 
 在HList的时候，因为只调用了map一次，所以只有一次eta-expansion的机会。这个Function1只能有一个fixed type，爆炸。
 
