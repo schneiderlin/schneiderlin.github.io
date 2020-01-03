@@ -11,7 +11,7 @@ Monad可以用flatMap改变M[_]里面的type
 那么是否可以保持容器里面的type不变，改变容器的类型。这是一个functor到functor的morphism，是
 natural transformation。  
 
-加入在某个项目中，同时用了Monix的Task，scala collection的Future/Promise，java的CompletableFuture，
+假如在某个项目中，同时用了Monix的Task，scala collection的Future/Promise，java的CompletableFuture，
 想要在这些容器之间转换，就需要用到natural transformation。   
 
 ### 如何实现在functor之间转换
