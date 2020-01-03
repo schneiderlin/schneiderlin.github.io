@@ -1,3 +1,0 @@
-org.scalatest.concurrent
-
-Eventually

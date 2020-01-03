@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>猫论魔法店 - functional programming解决n+1问题（下）</title>
+        <link rel="stylesheet" href="../css/default.css" />
+    </head>
+    <body>
+        <header>
+            <div class="logo">
+                <a href="../">猫论魔法店</a>
+            </div>
+            <nav>
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </nav>
+        </header>
+
+        <main role="main">
+            <h1>functional programming解决n+1问题（下）</h1>
+            <article>
+    <section class="header">
+        Posted on August 10, 2019
+        
+    </section>
+    <section>
+        <p>上一篇讲到理想解决方案是实现一个分析程序</p>
+<pre><code>原始查询 --&gt; 分析程序 --&gt; 优化查询</code></pre>
+<p>这一篇讲如何通过Fetch monad实现理想解决方案。</p>
+<h4 id="fetch-monad和各种相关的type">Fetch monad和各种相关的type</h4>
+<p>在实现这个“分析程序”之前，还需要处理的一个问题就是如何写“原始查询”，“原始查询”作为“分析程序”的输入，需要有足够的表达力，能够表达任意复杂查询方式，并且要无歧义。</p>
+<p>要能够分析“原始查询”,关键点是需要“足够的信息”,因此定义一个Result type,用来表示查询结果</p>
+<pre><code>// A表示查询结果的返回类型
+sealed trait Result[A]
+// 先忽略Done和Blocked具体是什么
+case class Done[A](...) extends Result[A]
+case class Blocked[A, R](...) extends Result[A]</code></pre>
+<p>然后还需要一个Monad,提供足够的表达力,以便组合任意的查询,这个Monad称作Fetch.</p>
+<pre><code>case class Fetch[A](r: IO[Result[A]])
+
+// 后面会讲如何实现这个monad instance,现在只需要假设Fetch是一个monad
+implicit def fetchMonad: new Monad[Fetch] = ???</code></pre>
+<p>可以看到Fetch本质上就是<code>IO[Result[A]]</code><br />
+<code>IO[A]</code>是任意的一个effectful的function,而Fetch是一种特殊的effectful function,限制了返回值必须是<code>Result[A]</code>.<br />
+这一个限制,就提供了上面所说的“足够的信息”,<code>IO[A]</code>是没办法分析的,因为A可以是任何type,而<code>Result[A]</code>一定是Done或者Blocked,是可以分析的.</p>
+<h5 id="result">Result</h5>
+<p>现在看Result里面的Done和Blocked分别是什么.<br />
+Done表示已经完成的查询,a就是查询的结果</p>
+<pre><code>case class Done[A](a: A) extends Result[A]</code></pre>
+<p>Blocked表示一个阻塞的查询,当br都解决了之后,会变成cont(continuation)</p>
+<pre><code>// BlockedRequest在后面会讲到是什么
+case class Blocked[A, R](br: List[BlockedRequest[R]], cont: Fetch[A]) extends Result[A]</code></pre>
+<h5 id="request">Request</h5>
+<p>Request是一个提供给用户extend的type</p>
+<pre><code>// A表示查询返回的类型
+trait Request[+A]</code></pre>
+<p>根据业务的需要，定义各种Request，查询学生的例子</p>
+<pre><code>case class StudentInfoRequest(studentId: StudentId) extends Request[StudentInfo]
+case class StudentByClassRequest(classId: ClassId) extends Request[List[Student]]
+case class ClassByGradeRequest(gradeId: GradeId) extends Request[List[Class]]
+
+// 获取id&quot;student1&quot;对应的学生信息
+val request1 = StudentInfoRequest(&quot;student1&quot;)
+// 获取id&quot;class1&quot;对应的所有学生
+val request2 = StudentByClassRequest(&quot;class1&quot;)</code></pre>
+<h5 id="fetchstatus">FetchStatus</h5>
+<p>FetchStatus用来表示查询的状态,可能是还没查询或成功.为了简化说明,省略了查询失败这一状态</p>
+<pre><code>sealed trait FetchStatus[+A]
+case object NotFetched           extends FetchStatus[Nothing]
+case class FetchSuccess[A](a: A) extends FetchStatus[A]</code></pre>
+<h5 id="blockedrequest">BlockedRequest</h5>
+<p>BlockedRequest是一个原始的Request对象,和一个ref用来存放Fetch的结果.<br />
+在一个BlockedRequest执行的时候,ref里面会被set上相应的结果.</p>
+<pre><code>case class BlockedRequest[A](request: Request[A], ref: Ref[IO, FetchStatus[A]])</code></pre>
+<h4 id="构建基础的fetch">构建基础的fetch</h4>
+<p>首先需要有简单的查询,例如“根据学生id查学生信息”,“查询班级内所有学生”等的基础查询.<br />
+如何将这些基础查询用Fetch monad描述出来?即如何把<code>Request[A]</code>转换成<code>Fetch[A]</code>.</p>
+<p>下面是一个dataFetch函数,能够把Request lift到Fetch.<br />
+刚创建出来Request一定是还没完成的,因此是一个<code>IO[Blocked[A]]</code>,创建Blocked的时候,需要指定block by什么请求.</p>
+<pre><code>def dataFetch[A](request: Request[A]): Fetch[A] = {
+    // 创建一个IO[Blocked[A]]
+    val io = for {
+      // 初始化一个box,状态是NotFetched
+      box &lt;- Ref.of[IO, FetchStatus[A]](NotFetched)
+      // 创建一个BlockedRequest,这个Fetch需要等待br完成
+      br  = BlockedRequest(request, box)
+      // 当br完成之后,获取查询结果a,continue到Done状态
+      cont = Fetch(for {
+        FetchSuccess(a) &lt;- box.get
+      } yield Done(a))
+    } yield Blocked(List(br), cont)
+
+    Fetch(io)
+  }</code></pre>
+<p>现在可以创建几个基础的fetch了</p>
+<pre><code>def fetchStudentInfo(studentId: StudentId): Fetch[StudentInfo] = 
+  dataFetch(StudentInfoRequest(studentId))
+
+def fetchStudentByClass(classId: ClassId): Fetch[List[Student]] = 
+  dataFetch(StudentByClassRequest(classId))</code></pre>
+<h4 id="组合fetch">组合fetch</h4>
+<p>可以用Monad来组合串行的，有依赖关系的查询，用Applicative来组合并行的，没有依赖关系的查询。</p>
+<pre><code>for {
+  // 先获取学生，拿到学生id后才能做下一步操作，用Monad(flatMap)组合
+  students &lt;- fetchStudentByClass(&quot;class1&quot;)
+  // 所有学生各自获取信息,相互无依赖,用Applicative(traverse)组合
+  studentInfos &lt;- students.traverse { student =&gt;
+    fetchStudentInfo(student.studentId)
+  }
+} yield studentInfos.flatten</code></pre>
+<p>由于数据的获取有依赖关系,所以上面的原始查询-分析-优化查询的过程不是一次性的,而是分阶段的,一个阶段称作一个round.在上面的例子中,获取班级中的学生是一个round,只有在第一个round完成之后,才能获取到第二round需要的学生id.</p>
+<p>以上介绍了如何构建基础的Fetch和组合基础的Fetch构造完整的“原始查询”,接下来就是如何分析“原始查询”.</p>
+<h4 id="fetch-monad">Fetch Monad</h4>
+<p>Fetch的魔法都在Fetch Monad的实现里面.</p>
+<p>Fetch Monad的关键点是不能只写一个flatMap方法，然后让Applicative都是用默认实现。<br />
+后面可以看到只有无依赖的查询才能优化。<br />
+如果有多个无依赖的，同源的查询，例如查询每个学生的信息，可以把这多个独立的请求合成一个批量请求，以此达到优化的效果。<br />
+Fetch monad在执行的时候，会把所有能够batch的请求合起来，然后执行一次查询，这样就完成了一个round。<br />
+在第三篇测试和可视化Fetch monad的执行过程时，可以很清晰的看到fetch是如何优化的。</p>
+<p>pure是把一个已经获取到的值lift到Fetch context里面，只需要包装一层Done</p>
+<pre><code>def pure[A](x: A) = Fetch(Done(x).pure[IO])</code></pre>
+<p>map是当Fetch到结果之后，再用f对结果做一次转换。</p>
+<pre><code>def map[A, B](fa: Fetch[A])(f: A =&gt; B) = Fetch {
+  val io: IO[Result[B]] = for {
+    result &lt;- fa.r
+    newResult &lt;- result match {
+                  case Done(a)           =&gt; Done(f(a)).pure[IO]
+                  case Blocked(br, cont) =&gt; Blocked(br, map(cont)(f)).pure[IO]
+                }
+  } yield newResult
+
+  io
+}</code></pre>
+<p>map2是决定两个没有依赖关系的fetch如何结合在一起</p>
+<pre><code>def map2[A, B, Z](fa: Fetch[A], fb: Fetch[B])(f: (A, B) =&gt; Z) = Fetch {
+  val io: IO[Result[Z]] = for {
+    ab &lt;- (fa.r, fb.r).tupled
+    result &lt;- ab match {
+               case (Done(a), Done(b))           =&gt; Done(f(a, b)).pure[IO]
+               case (Done(_), Blocked(br, cont)) =&gt; Blocked(br, map2(fa, cont)(f)).pure[IO]
+               case (Blocked(br, cont), Done(_)) =&gt; Blocked(br, map2(cont, fb)(f)).pure[IO]
+               case (Blocked(br1, cont1), Blocked(br2, cont2)) =&gt;
+                 Blocked(br1 ++ br2, map2(cont1, cont2)(f)).pure[IO]
+             }
+  } yield result
+
+  io
+}</code></pre>
+<p>当发现两个需要结合起来的fetch都是Blocked的时候，就可以优化了，可以把两个的br合起来。例如fetch1是获取id为“student1”的学生信息，fetch2是获取id为“student2”的学生信息，这两个查实是独立的，可以用map2结合起来，两个br就会合在一起，这样只需要发一次批量查询请求就可以了。</p>
+<p>flatMap的语义是有依赖的串行执行，由于有依赖，所以没办法把br结合起来。</p>
+<pre><code>def flatMap[A, B](fa: Fetch[A])(f: A =&gt; Fetch[B]): Fetch[B] = Fetch {
+  val io: IO[Result[B]] = fa.r.flatMap {
+    case Done(a)           =&gt; f(a).r
+    case Blocked(br, cont) =&gt; Blocked(br, flatMap(cont)(f)).pure[IO]
+  }
+
+  io
+}</code></pre>
+<h4 id="fetch的执行">Fetch的执行</h4>
+<p>现在已经用monadic的表达式写出任意复杂的查询了。例如</p>
+<pre><code>def studentByClass(classId: ClassId): Fetch[List[StudentInfo]] =
+for {
+  // 把Request lift到Fetch context
+  students &lt;- dataFetch(StudentByClassRequest(classId))
+  studentInfos &lt;- students.traverse { student =&gt;
+                   dataFetch(StudentInfoRequest(student.studentId))
+                 }
+} yield studentInfos</code></pre>
+<p>现在还需要一个Fetch的“runtime”，能够把<code>Fetch[A]</code>变成<code>IO[A]</code></p>
+<pre><code>// fetchFunc是用户需要提供的一个根据BlockedRequest执行实际的网络/数据库查询的函数，
+// fetchFunc的例子可以参考完整代码中的myFetchFunc
+def runFetch[A](fetchFunc: List[BlockedRequest[Any]] =&gt; IO[Unit], toFetch: Fetch[A]): IO[A] =
+for {
+  r &lt;- toFetch.r
+  a &lt;- r match {
+        case Done(a) =&gt; a.pure[IO]
+        case Blocked(br, cont) =&gt;
+          for {
+            _     &lt;- fetchFunc(br)
+            contA &lt;- runFetch(fetchFunc, cont)
+          } yield contA
+      }
+} yield a</code></pre>
+<h4 id="完整例子">完整例子</h4>
+<p>完整的例子可以在<a href="https://gitlab.com/schneiderlin/toy-fetch.git">gitlab</a>上找到，这个Fetch Monad的实现只要是方便解释，有很多的edge case没有考虑，production ready的实现参考47deg开源的<a href="https://47deg.github.io/fetch/docs.html">Fetch</a></p>
+    </section>
+</article>
+
+        </main>
+
+        <footer>
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </footer>
+    </body>
+</html>

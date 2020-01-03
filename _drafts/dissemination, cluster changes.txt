@@ -1,9 +1,0 @@
-node，logical member of a cluster
-cluster, a set of nodes joined together through the membership service
-leader, manage cluster convergence and membership state transitions
-
-membership
-一个member node用hostname:port:uid确定。把一个akka application分布到不同的机器上。
-每一个机器上都有一个actor system，uid确定的就是actor system
-
-membership state是一个特殊的CRDT

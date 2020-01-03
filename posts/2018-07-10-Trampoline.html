@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>猫论魔法店 - Trampoline, FP如何解决递归栈溢出</title>
+        <link rel="stylesheet" href="../css/default.css" />
+    </head>
+    <body>
+        <header>
+            <div class="logo">
+                <a href="../">猫论魔法店</a>
+            </div>
+            <nav>
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </nav>
+        </header>
+
+        <main role="main">
+            <h1>Trampoline, FP如何解决递归栈溢出</h1>
+            <article>
+    <section class="header">
+        Posted on July 10, 2018
+        
+            by linzihao
+        
+    </section>
+    <section>
+        <h2 id="trampoline">Trampoline</h2>
+<p>在递归很深的时候，可以用尾递归和Trampoline解决栈溢出的问题，虽然Trampoline比直接写尾递归要慢，但是代码的可读性会好很多。</p>
+<p>由于用了Trampoline之后，调用递归代码时，栈的深度一直在1和2之间跳跃，直到递归结束。所以叫Trampoline。</p>
+<h3 id="一个会栈溢出的例子">一个会栈溢出的例子</h3>
+<div class="sourceCode" id="cb1"><pre class="sourceCode scala"><code class="sourceCode scala"><a class="sourceLine" id="cb1-1" title="1"><span class="kw">def</span> <span class="fu">even</span>(n: Int): Boolean = n <span class="kw">match</span> {</a>
+<a class="sourceLine" id="cb1-2" title="2">	<span class="kw">case</span> <span class="dv">0</span> =&gt; <span class="kw">true</span></a>
+<a class="sourceLine" id="cb1-3" title="3">	<span class="kw">case</span> _ =&gt; <span class="fu">odd</span>(n - <span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb1-4" title="4">}</a>
+<a class="sourceLine" id="cb1-5" title="5"><span class="kw">def</span> <span class="fu">odd</span>(n: Int): Boolean = n <span class="kw">match</span> {</a>
+<a class="sourceLine" id="cb1-6" title="6">	<span class="kw">case</span> <span class="dv">0</span> =&gt; <span class="kw">false</span></a>
+<a class="sourceLine" id="cb1-7" title="7">	<span class="kw">case</span> _ =&gt; <span class="fu">even</span>(n - <span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb1-8" title="8">}</a></code></pre></div>
+<p>在这个判断某个整数n是否为偶数的例子中，even和odd互相调用，当输入n很大的时候，就会出现栈溢出。</p>
+<h3 id="trampoline改写例子">Trampoline改写例子</h3>
+<p>Trampoline的思想是每一次递归的时候，返回一个计算的状态。稍后可以从这个状态开始，继续计算下去。 在这个例子中，计算的状态就是even或者odd，还有输入n。</p>
+<p>现在定义一个存放状态的trait，叫做Trampoline，A代表计算结果的返回类型 Even和Odd是两种状态，所以extends Trampoline 另外还要加上一个完成的状态Done</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode scala"><code class="sourceCode scala"><a class="sourceLine" id="cb2-1" title="1"><span class="kw">trait</span> Trampoline[A] {}</a>
+<a class="sourceLine" id="cb2-2" title="2"><span class="kw">case</span> <span class="kw">class</span> <span class="fu">Even</span>(n: Int) <span class="kw">extends</span> Trampoline[Boolean]</a>
+<a class="sourceLine" id="cb2-3" title="3"><span class="kw">case</span> <span class="kw">class</span> <span class="fu">Odd</span>(n: Int) <span class="kw">extends</span> Trampoline[Boolean]</a>
+<a class="sourceLine" id="cb2-4" title="4"><span class="kw">case</span> <span class="kw">class</span> Done[A](b: A) <span class="kw">extends</span> Trampoline[A]</a></code></pre></div>
+<p>有了状态之后，现在就可以改写even和odd函数，使得这两个函数返回一个状态，而不是直接返回结果。</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode scala"><code class="sourceCode scala"><a class="sourceLine" id="cb3-1" title="1"><span class="kw">def</span> <span class="fu">even</span>(n: Int): Trampoline[Boolean] = n <span class="kw">match</span> {</a>
+<a class="sourceLine" id="cb3-2" title="2">	<span class="kw">case</span> <span class="dv">0</span> =&gt; <span class="fu">Done</span>(<span class="kw">true</span>)</a>
+<a class="sourceLine" id="cb3-3" title="3">	<span class="kw">case</span> _ =&gt; <span class="fu">Odd</span>(n<span class="dv">-1</span>)</a>
+<a class="sourceLine" id="cb3-4" title="4">}</a>
+<a class="sourceLine" id="cb3-5" title="5"><span class="kw">def</span> <span class="fu">odd</span>(n: Int): Trampoline[Boolean] = n <span class="kw">match</span> {</a>
+<a class="sourceLine" id="cb3-6" title="6">	<span class="kw">case</span> <span class="dv">0</span> =&gt; <span class="fu">Done</span>(<span class="kw">false</span>)</a>
+<a class="sourceLine" id="cb3-7" title="7">	<span class="kw">case</span> _ =&gt; <span class="fu">Even</span>(n<span class="dv">-1</span>)</a>
+<a class="sourceLine" id="cb3-8" title="8">}</a></code></pre></div>
+<p>由于现在even和odd返回的是一个Trampoline[Boolean]，不是最终的结果，所以我们需要给Trampoline定义一个run方法。只要有一个计算状态，就可以从这个状态开始run。</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode scala"><code class="sourceCode scala"><a class="sourceLine" id="cb4-1" title="1"><span class="kw">trait</span> Trampoline[A] {</a>
+<a class="sourceLine" id="cb4-2" title="2">	<span class="kw">def</span> run: A = <span class="kw">this</span> <span class="kw">match</span> {</a>
+<a class="sourceLine" id="cb4-3" title="3">	    <span class="kw">case</span> <span class="fu">Done</span>(result) =&gt; result</a>
+<a class="sourceLine" id="cb4-4" title="4">	    <span class="kw">case</span> even: Even =&gt; even.<span class="fu">run</span></a>
+<a class="sourceLine" id="cb4-5" title="5">	    <span class="kw">case</span> odd: Odd =&gt; odd.<span class="fu">run</span></a>
+<a class="sourceLine" id="cb4-6" title="6">	  }</a>
+<a class="sourceLine" id="cb4-7" title="7">}</a></code></pre></div>
+<p>可以看出</p>
+    </section>
+</article>
+
+        </main>
+
+        <footer>
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </footer>
+    </body>
+</html>

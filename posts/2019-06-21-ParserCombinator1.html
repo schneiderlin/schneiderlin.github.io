@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>猫论魔法店 - Parser combinator part1</title>
+        <link rel="stylesheet" href="../css/default.css" />
+    </head>
+    <body>
+        <header>
+            <div class="logo">
+                <a href="../">猫论魔法店</a>
+            </div>
+            <nav>
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </nav>
+        </header>
+
+        <main role="main">
+            <h1>Parser combinator part1</h1>
+            <article>
+    <section class="header">
+        Posted on June 21, 2019
+        
+    </section>
+    <section>
+        <p>第一部分parser combinator的主要内容，忽略掉部分细节<br />
+第二部分实现下诉的表达式parser，和JVM上实现会遇到的问题，栈安全和尾递归等<br />
+第三部分从monad, algebra等角度看parser combinator和总结</p>
+<h4 id="part-1-overview">Part 1 overview</h4>
+<p>lexer/scanner是把字符串转换到token stream的程序<br />
+parser是把token stream转换到AST(abstract syntax tree)的程序</p>
+<p>用parser combinator，可以把字符串直接转换到AST，在这篇文章中，最终会实现一个读计算表达式，生成scala中的一个表达式ADT。</p>
+<p>表达式的字符串是这样</p>
+<pre><code>(1 + 3) * 4 - 2</code></pre>
+<p>生成出来的scala ADT是这样</p>
+<pre><code>trait Expr
+case class Number(v: Int)            extends Expr
+case class AddOp(e1: Expr, e2: Expr) extends Expr
+case class MulOp(e1: Expr, e2: Expr) extends Expr</code></pre>
+<pre><code>val expr: Expr = AddOp(
+    MulOp(
+      AddOp(Number(1), Number(3)),
+      Number(4)
+    ),
+    Number(-2)
+  )</code></pre>
+<p>parser combinator很好的体现了函数式编程的优越性，只需要定义一小部分基础的函数，然后就可以很自由的组合出复杂的功能。</p>
+<p>参考了论文http://www.cs.nott.ac.uk/~pszgmh/pearl.pdf</p>
+<h4 id="parser-class">Parser class</h4>
+<p>parser本质上就是一个输入字符串，输出parse结果的函数。</p>
+<pre><code>case class Parser[A](parse: String =&gt; List[(A, String)])</code></pre>
+<p>parse的输出是一个List，表示结果不唯一。tuple中的A表示匹配到的结果，tuple中的String表示剩余的字符串<br />
+例如&quot;1*“匹配字符串”112&quot;，得到结果</p>
+<pre><code>List((&quot;11&quot;, &quot;2&quot;), (&quot;1&quot;, &quot;12&quot;), (&quot;&quot;, &quot;112&quot;))</code></pre>
+<p>我们一般只对“最长匹配”感兴趣，即列表中的第一个结果。</p>
+<h4 id="building-block">Building block</h4>
+<p>现在的Parser class还没有任何的函数/方法，但是已经可以写一些最基础的parser了。</p>
+<h5 id="item-parser">item parser</h5>
+<p>这个parser会读字符串，然后匹配字符串中的第一个字符。</p>
+<pre><code>val item: Parser[Char] = Parser(str =&gt;
+    str.toList match {
+      case c :: cs =&gt; List((c, cs.mkString))
+      case Nil     =&gt; Nil
+  })</code></pre>
+<p>使用这个parser的例子</p>
+<pre><code>item.parse(&quot;123&quot;)
+item.parse(&quot;hello&quot;)</code></pre>
+<p>这个parser非常的简单，只要不是空字符串，就返回第一个字符。单独这个parser似乎没有用，但是函数式编程的优势在于组合，后面可以看到很多以item为基础构建的parser。</p>
+<h5 id="fail-parser">fail parser</h5>
+<p>这个parser是无论输入什么字符串，永远parse失败。<br />
+fail parser存在的意义可以类比自然数中的0，是构建复杂parser必不可少的</p>
+<pre><code>def fail[A]: Parser[A] = Parser(_ =&gt; List())</code></pre>
+<h4 id="pure-parser">pure parser</h4>
+<p>pure是一个构造parser的函数，pure(x)是一个无论输入什么字符串，永远parse出x的一个parser。</p>
+<pre><code>def pure[A](x: A): Parser[A] =
+       Parser(str =&gt; List((x, str)))</code></pre>
+<p>这个parser可以类比成自然数中的1，到后面组合其他parser的时候，就可以看出来为什么这个是1。</p>
+<h4 id="组合parser">组合parser</h4>
+<p>为了构造复杂的parser，需要parser能够满足以下的条件: - 能够按顺序的parse一个字符串，先用parser1匹配字符串，然后用parser2匹配剩余的字符串 - 能够parse字符串的一部分，获取必要的信息，然后用这些信息构建一个parser，接着parse剩余的字符串。例如parser1会读文件的header，获取编码格式，然后根据编码格式得到一个parser2，用parser2解码文件的body。</p>
+<p>上面的这两个要求，可以用flatMap函数满足</p>
+<pre><code>/**
+  * @param fa 读header的parser
+  * @param f 根据header构造body parser的函数
+  * @tparam A header
+  * @tparam B body
+  */
+def flatMap[A, B](fa: Parser[A])(f: A =&gt; Parser[B]): Parser[B] =
+        Parser { str =&gt;
+          for {
+            // 首先用header parser处理字符串，得到header和剩余字符串
+            (a, str_) &lt;- fa.parse(str)
+            // f(a)构造body parser，用body parser处理剩余字符串
+            res       &lt;- f(a).parse(str_)
+          } yield res
+        }</code></pre>
+<p>可以发现parser是一个monad，为了后面方便使用for-comprehension，创造一个cats Monad的instance。</p>
+<pre><code>import cats.Monad
+import cats.implicits._
+
+implicit val parserMonad: Monad[Parser] = new Monad[Parser] {
+      override def pure[A](x: A): Parser[A] =
+        Parser(str =&gt; List((x, str)))
+      
+      override def flatMap[A, B](fa: Parser[A])(f: A =&gt; Parser[B]): Parser[B] =
+        Parser { str =&gt;
+          for {
+            (a, str_) &lt;- fa.parse(str)
+            res       &lt;- f(a).parse(str_)
+          } yield res
+        }
+      // tailRecM用来防止栈溢出，在这里不考虑
+      override def tailRecM[A, B](a: A)(f: A =&gt; Parser[Either[A, B]]) = ???
+    }</code></pre>
+<h4 id="condition-parser">Condition parser</h4>
+<p>有了上面的3个基础的parser，和组合parser的方法。现在可以组合出比较有用的parser</p>
+<pre><code>def sat(p: Char =&gt; Boolean): Parser[Char] =
+    for {
+      c   &lt;- item   // item无条件parse出第一个字符串
+      res &lt;- if (p(c)) c.pure[Parser] else fail // 如果跟目标字符串不一致，返回失败
+    } yield res
+
+def char(c: Char): Parser[Char] = sat(_ == c)</code></pre>
+<p>试一下char parser的用法</p>
+<pre><code>char('1').parse(&quot;123&quot;)
+char('2').parse(&quot;123&quot;)</code></pre>
+<h4 id="组合parser例子">组合parser例子</h4>
+<h5 id="parse字符串的第一个和第三个字符">parse字符串的第一个和第三个字符</h5>
+<pre><code>val firstAndThird: Parser[(Char, Char)] = for {
+    first &lt;- item
+    _     &lt;- item
+    third &lt;- item
+  } yield (first, third)</code></pre>
+<pre><code>firstAndThird.parse(&quot;123&quot;)</code></pre>
+<h4 id="parse某个特定的字符串">parse某个特定的字符串</h4>
+<pre><code>def string(s: String): Parser[String] = s.toList match {
+    case Nil =&gt; &quot;&quot;.pure[Parser]
+    case c :: cs =&gt;
+      for {
+        _ &lt;- char(c)
+        _ &lt;- string(cs.mkString)
+      } yield s
+  }</code></pre>
+<h4 id="另一种组合方式">另一种组合方式</h4>
+<p>还有一种组合parser的方式是或的关系，这里用|+|来表示或。<br />
+parser1 |+| parser2会匹配parser1，然后再匹配parser2，最后把所有可能的结果返回。</p>
+<p>可以由两个parser |+|起来变成另一个parser，parser是个半群，可以写一个cats semigroup instance</p>
+<pre><code>import cats.kernel.Semigroup
+
+implicit def parserSemigroup[A]: Semigroup[Parser[A]] = new Semigroup[Parser[A]] {
+      override def combine(x: Parser[A], y: Parser[A]): Parser[A] =
+        Parser(str =&gt; x.parse(str) ++ y.parse(str))
+    }</code></pre>
+<p>因为一般只要结果的第一个，parser1和parser2都成功时只要parser1的结果，所以可以写一个+++方法</p>
+<pre><code>import cats.implicits._
+
+case class Parser[A](parse: String =&gt; List[(A, String)]) {
+    def +++(other: Parser[A]): Parser[A] =
+      Parser(str =&gt; (this |+| other).parse(str).take(1))
+  }</code></pre>
+<h4 id="kleene和kleene">kleene*和kleene+</h4>
+<pre><code>import cats.implicits._
+
+def many[A](p: Parser[A]): Parser[List[A]] =
+    many1(p) +++ (Nil: List[A]).pure[Parser]
+    
+def many1[A](p: Parser[A]): Parser[List[A]] =
+    for {
+      a  &lt;- p
+      as &lt;- many(p)
+    } yield a :: as</code></pre>
+<h4 id="parser的转换">parser的转换</h4>
+<p>最终的目标是写一个计算表达式的Parser，但是上面写的Parser parse出来的结果都是Char或者String，怎么转换成别的类型？<br />
+可以首先parse成字符串，然后把字符串转成别的类型。<br />
+map提供把<code>Parser[A]</code>转换成<code>Parser[B]</code>的能力，可以写一个Functor instance</p>
+<pre><code>import cats.implicits._
+import cats.Functor
+
+implicit val parserFunctor: Functor[Parser] = new Functor[Parser] {
+      override def map[A, B](fa: Parser[A])(f: A =&gt; B): Parser[B] = for {
+        a &lt;- fa // 先parse成A
+      } yield f(a)   // 把A转换成B，得到了Parser[B]
+    }</code></pre>
+    </section>
+</article>
+
+        </main>
+
+        <footer>
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </footer>
+    </body>
+</html>
