@@ -1,4 +1,4 @@
-hexo.extend.tag.register('video', function (args) {
+hexo.extend.tag.register('bilibili', function (args) {
     const url = args[0]
 
     return `

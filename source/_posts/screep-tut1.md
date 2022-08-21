@@ -4,4 +4,4 @@ date: 2022-07-30 20:33:46
 tags: [screep]
 ---
 
-{% video //player.bilibili.com/player.html?bvid=BV1HW4y1y7DQ&page=1 %}
+{% bilibili //player.bilibili.com/player.html?bvid=BV1HW4y1y7DQ&page=1 %}
