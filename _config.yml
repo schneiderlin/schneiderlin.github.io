@@ -2,6 +2,10 @@
 ## Docs: https://hexo.io/docs/configuration.html
 ## Source: https://github.com/hexojs/hexo/
 
+# Google Analytics
+google_analytics:
+  tracking_id: UA-125414394-1
+
 # Site
 title: Welcome to my messy BRAIN
 subtitle: ''
