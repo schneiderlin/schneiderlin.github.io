@@ -9,5 +9,14 @@ hexo.extend.tag.register('bilibili', function (args) {
             </iframe>
         </div>
     `
+})
 
-});
+hexo.extend.tag.register('mov', function (args) {
+    const path = args[0]
+
+    return `<video width="320" height="240" src="${this.path + path}"></video>`
+
+    // <video width="400" controls autoplay>
+    //         <source src="${this.path + path}" type="video/mp4">
+    //     </video>
+})
