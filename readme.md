@@ -1,6 +1,7 @@
 ### 怎么添加新文章
 添加 md 文件到 source/_posts 里面.
-git commit 之后推到 main 分支. github action 会自动构建
+git commit 之后推到 main 分支.
+npm run deploy
 
 ### 插件怎么配置
 根目录的 _config.yml, 这是全局的配置

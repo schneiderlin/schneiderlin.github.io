@@ -614,7 +614,7 @@ giscus:
   reactions_enabled: 1
   emit_metadata: 1
   theme: light
-  lang: en
+  lang: zh-CN
   crossorigin: anonymous
   input_position: bottom
   loading: lazy
