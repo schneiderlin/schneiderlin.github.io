@@ -7,7 +7,7 @@ git commit 之后推到 main 分支. github action 会自动构建
 ```
 theme: next
 ```
-指定了使用 next 插件, next 的配置在 themes/next/_config.yml 里面
+指定了使用 next 插件, next 的配置在 _config.next.yml 里面
 
 ### giscus 的 repo id 和 category id 从哪拿的
 gh api graphql -f query='
