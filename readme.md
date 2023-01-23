@@ -11,6 +11,9 @@ npm run server
 git commit 之后推到 main 分支.
 npm run deploy
 
+### 怎么发布
+npm run deploy
+
 ### 插件怎么配置
 根目录的 _config.yml, 这是全局的配置
 ```
