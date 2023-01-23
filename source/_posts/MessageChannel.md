@@ -107,3 +107,75 @@ inner.html:16 port2 get message:  MessageEvent {isTrusted: true, data: 'aha', o
 ```
 
 以上就实现了和 iframe 的双向通信.
+
+最终结果 file listing  
+index.html
+```html
+<html>
+
+<body>
+    <h1>index</h1>
+
+    <iframe id="inner" style="display: block;" src="./inner.html"></iframe>
+
+    <script type="text/javascript">
+        const channel = new MessageChannel()
+        const port1 = channel.port1
+
+        // 放到 window, 可以在控制台测试
+        window.port1 = port1
+
+        // 接收到消息打印出来
+        port1.onmessage = e => {
+            console.log("port1 get message: ", e)
+        }
+
+        const frameElem = document.getElementById("inner")
+        const frame = frameElem.contentWindow
+
+        // 当 inner 加载完时(即 load 事件发生时), 使用 postMessage 方法把 port2 交给对端
+        frameElem.addEventListener("load", () => {
+            console.log("port2 send to iframe")
+            // 使用的是三个参数的 postMessage(message, targetOrigin, transfer)
+            // - 第一个参数 message 不需要用到, 用空字符串
+            // - 第二个参数 targetOrigin 表示当 origin 是什么时候才生效, * 表示任意 origin
+            // - 第三个参数 transfer 是需要传递到对端的所有对象
+            frame.postMessage(
+                "",
+                "*",
+                [channel.port2]
+            )
+        })
+
+    </script>
+</body>
+
+</html>
+```
+
+inner.html
+```html
+<html>
+
+<body>
+    <h1>inner</h1>
+
+    <script type="text/javascript">
+        window.onmessage = (evt) => {
+            // evt.ports 就是 index.html 中传递的 [channel.port2]
+            if (evt.ports && evt.ports.length) {
+                console.log("inner received port2")
+                // 放到 window 中方便测试
+                window.port2 = evt.ports[0]
+
+                // 监听消息
+                port2.onmessage = e => {
+                    console.log("port2 get message: ", e)
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
+```
