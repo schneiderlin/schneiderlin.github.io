@@ -8,14 +8,15 @@ npm run server
 
 ### 怎么添加新文章
 添加 md 文件到 source/_posts 里面.
-git commit 之后推到 main 分支. github action 会自动构建
+git commit 之后推到 main 分支.
+npm run deploy
 
 ### 插件怎么配置
 根目录的 _config.yml, 这是全局的配置
 ```
 theme: next
 ```
-指定了使用 next 插件, next 的配置在 themes/next/_config.yml 里面
+指定了使用 next 插件, next 的配置在 _config.next.yml 里面
 目前是不需要配置 next 的, 也可以在全局配置里面配置.
 因为 next 目录不在 version control 里面, 所以最好在全局配置.
 
