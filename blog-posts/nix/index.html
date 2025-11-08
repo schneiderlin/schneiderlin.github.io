@@ -1,0 +1,10 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>nix | The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:title" content="nix"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/nix/"></head><body><header><a href="/">首页</a></header><h2>nix-shell</h2>
+<p><code>nix-shell -p program-you-like-to-use</code> 就会进入一个 shell 是安装好 program-you-like-to-use 的.<br>
+也可以单独只跑一次, 然后退出
+<code>nix-shell -p program --run args</code>
+也可以提供多个 program 一起用
+<code>nix-shell -p git nodejs</code></p>
+<p>program 都有哪些可以在 <a href="https://search.nixos.org/packages">https://search.nixos.org/packages</a> 上面搜索</p>
+<p>执行的时候根据当前的 nix 版本可能会获取到不同的 program / package. 可以通过 -I 参数指定一个固定的版本.</p>
+<p>目前用 nix-shell 来 setup 新的机器, 就不需要逐个安装 node java clojure zsh git docker 之类的了.</p>
+</body></html>

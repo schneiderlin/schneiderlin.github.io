@@ -1,0 +1,52 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>可复用的 UI 代码 | The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:title" content="可复用的 UI 代码"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/what-is-ui/"></head><body><header><a href="/">首页</a></header><p>什么是 UI. 处理人和计算机交互, 有两条路线, 人 -&gt; 计算机, 计算机 -&gt; 人.</p>
+<p>计算机 -&gt; 人的路线.<br>
+从 data 到 感观(视觉, 听觉等).</p>
+<p>人 -&gt; 计算机的路线.<br>
+用户输入(鼠标, 键盘, 触控等)映射到 user intent.</p>
+<h2>计算机 -&gt; 人</h2>
+<p>先细分 计算机 -&gt; 人 的路线.<br>
+state data -&gt; sensory data -&gt; computer output</p>
+<p>其中 state data 是需要可视化的数据, 例如一个用户表格.
+sensory data 往往和 computer output 耦合到一起了. 例如 HTML dom tree 作为 sensory data, 和浏览器耦合了, 必须有浏览器才能渲染出页面. 各种游戏引擎的 SceneTree 作为 sensory data, 和相应的游戏引擎耦合了. Flutter 的 Widget tree, 和 Flutter 耦合了.</p>
+<p>能不能把 sensory data 和如何使用sensory data(渲染到output) 解耦?<br>
+可以通过引入中间层(intermedia representation)的方式.</p>
+<pre><code>state data -&gt; IR -&gt; dom tree
+                 -&gt; widget tree
+                 -&gt; ...
+</code></pre>
+<p>需要自己根据业务情况建模, IR 表示什么数据.</p>
+<p>引入 IR 解耦的好处是什么?<br>
+好处一, 大量的 UI 业务逻辑在 state data -&gt; IR 之间的转换. 并且IR 只是普通的数据(原子数据例如 string, number, 复合数据例如 Map, List, Set, 或者他们的嵌套). 那么这些业务逻辑很容易测试.</p>
+<p>例如 state data 包含了</p>
+<ul>
+<li>表格数据</li>
+<li>筛选, 排序条件</li>
+<li>分页参数</li>
+</ul>
+<p>IR 只包含某一页符合条件排序好的数据, 只是一个 List of rows. 测试时很容易 assert IR 是否符合条件.</p>
+<p>好处二, 如果 IR 包含了关于渲染的足够信息, 可以替换不同的 render backend.</p>
+<pre><code>IR -&gt; dom tree
+   -&gt; widget tree
+   -&gt; ...
+</code></pre>
+<p>这些胶水代码可以随意增加, 替换, 都不影响业务逻辑.</p>
+<p>好处三, layout 更灵活.<br>
+IR 里面一般也包含层级关系, 和 parent child sibling 之间应该怎么摆放的描述.
+layout 指的是把这些 high level 的描述, 转换成简单的 x, y, width, height 之类的, 使得 render backend 可以直接使用.
+例如</p>
+<pre><code>[:parent {:flexDirection "row"
+          :width 100}
+ [:child1 {:flexGrow 1}]
+ [:child2 {:flexGrow 2}]]
+</code></pre>
+<p>转换成</p>
+<pre><code>[:parent {:flexDirection "row"
+          :width 100}
+ [:child1 {:width 33}]
+ [:child2 {:width 66}]]
+</code></pre>
+<p>layout 算法不过是 data -&gt; data 的纯函数转换, 完全可以在不同的平台之间复用. 也可以自己设计不同的 high level 语言描述视图元素之间关系. 可以转换到 low level 的 x y width height 几乎全部 render backend 都支持.
+也可以转译到例如 css 之类的其他描述语言利用已有生态.</p>
+<h2>人 -&gt; 计算机</h2>
+<p>TODO</p>
+</body></html>

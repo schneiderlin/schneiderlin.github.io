@@ -1,0 +1,37 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>Songs of syx MOD 使用 clojure | The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:title" content="Songs of syx MOD 使用 clojure"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/setup-sos-mod-clojure/"></head><body><header><a href="/">首页</a></header><p>只需要在游戏的进程里面, 创建一个 nrepl server, 然后就可以 jack in 到游戏进程里面. 通过 repl 进行各种试验.</p>
+<p>在 <a href="/blog-posts/setup-sos-mod/">MOD 环境搭建</a> 里面说到, 游戏启动的时候会用 Class.forName 对所有 mod 提供的 class 都加载一次. 所以 clojure 生成的那些 class 也会被加载. 有一些 clojure 源码里面是用到了 set! dynvar 例如 <code>*warn-on-reflection*</code> 之类的, 在 clojure runtime 还没初始化的时候就 set! dynvar 是不可以的.<br>
+目前绕过这个限制的方式是在打包 mod jar 的时候, 把 clojure 相关包的 scope 改成 provided. 并且把这些包直接放到安装目录 /jre/lib 里面. 这样就不会被 Class.forName 处理.</p>
+<p>clojure jack in 之后就可以直接获取游戏里面的各种数据了, 例如读取人口数据</p>
+<pre><code class="language-clojure">(ns repl.core
+  (:import
+   [game GAME] 
+   [settlement.main SETT]
+   [settlement.stats STATS]
+   [settlement.room.main.construction ConstructionInit]
+   [settlement.room.main.placement UtilWallPlacability]
+   [settlement.room.main.placement PLACEMENT]
+   [your.mod InstanceScript]))
+
+(def player (GAME/player))
+(def races (.races player))
+(def race0 (.get races 0)) ;; 猪人
+(def race1 (.get races 1)) ;; 邓多里安人
+
+(.citizens player race0) ;; 猪人数量
+(.citizens player race1)
+</code></pre>
+<p>后面会用不同的 blog 写</p>
+<ul>
+<li>[ ] 获取某个小人的信息
+<ul>
+<li>[ ] 年龄</li>
+<li>[ ] 饥饿</li>
+<li>[ ] 内急</li>
+<li>[ ] 是否有住房</li>
+</ul>
+</li>
+<li>[ ] 创建工地</li>
+<li>[ ] 创建墙</li>
+<li>[ ] 创建门(天花板)</li>
+</ul>
+</body></html>

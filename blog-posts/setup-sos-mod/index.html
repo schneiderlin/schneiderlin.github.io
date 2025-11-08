@@ -1,0 +1,52 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>Songs of syx MOD 环境搭建 | The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:title" content="Songs of syx MOD 环境搭建"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/setup-sos-mod/"></head><body><header><a href="/">首页</a></header><p>songs of syx 怎么开始 mod</p>
+<p><a href="https://github.com/4rg0n/songs-of-syx-mod-example">https://github.com/4rg0n/songs-of-syx-mod-example</a> 这里面有详细的例子讲怎么 setup. 我这里在他的基础上强调和补充一些信息. JDK 版本 readme 里面说要 1.8, 还没试过其他版本, 理论上更新版本是可以的.</p>
+<p>游戏是相对很开放的, 可以在安装根目录里面(例如 C:\Program Files (x86)\Steam\steamapps\common\Songs of Syx), 找到 JRE 文件夹, 这个是游戏打包好的 java runtime, JRE/lib 里面有各种依赖包, 如果想要在 mod 里面用额外的依赖, 可以加到这里面. 当然也可以用简单的方式, 在 mod maven 项目的依赖里面加入依赖的第三方库.
+当游戏启动的时候, 会提前加载 mod 的所有类 (Class.forName). 这是为了防止多个不同的 mod 提供的类之间有冲突, 例如两个 mod 都用到了 org.xxx.SomeClass 这个类, 只有第一个 mod 的版本会被加载.</p>
+<p>游戏的源码在安装目录 /info/SongsOfSyx-sources. 编译后的 class 文件在安装目录的 /SongsOfSyx.jar. 所以直接修改游戏源码并重新编译也是可以的.</p>
+<h2>v69 源码</h2>
+<p>以下是 v69 源码里面的一些关键的部分, 听说每个版本之间代码变动会比较大, 所以可能不适用其他版本, 但是大的代码结构和思想应该是不变的</p>
+<h3>mod 机制</h3>
+<p>侵入性最小的 mod 方式应该是实现 script.Script interface.</p>
+<pre><code class="language-java">public CharSequence name();
+	
+/**
+ * 
+ * @return
+ */
+public CharSequence desc();
+</code></pre>
+<p>这两个没什么好说的, 就是 mod 的名字和描述.</p>
+<pre><code class="language-java">public default void initBeforeGameCreated()
+
+public default void initBeforeGameInited()
+</code></pre>
+<p>是在某个加载了该 mod 的存档被加载的时候调用. 分别在加载前和加载后调用.
+源码里面的 Game 一般指的是某个存档, 启动起动器, 还有主页面是不会触发这个函数调用的.</p>
+<pre><code class="language-java">public interface SCRIPT_INSTANCE {
+	
+	/**
+	 * Called after each tick. A tick is an update of the game. the game is typically
+	 * updated 60 times per second. Check your conditions here, and act on them. 
+	 * @param ds - how many seconds of in-game time that has passed since the previous update.
+	 */
+	abstract void update(double ds);
+}
+</code></pre>
+<p>这个 update 比较关键, 文档里面也说了, 这是每个 tick 执行的, 大约是每秒 60 次. 就算游戏内时间是暂停的状态, 也会不断的调用, 在这种情况下, ds 就是 0.</p>
+<h3>游戏引擎和线程</h3>
+<p>在 snake2d 包里面, 好像是 jake 自己写的引擎, 主线程有两个, GL 和 Updater.
+可以简单理解 GL 负责渲染, Updater 负责逻辑. Updater 会计算小人应该做什么, 他们的属性, 例如饥饿健康之类的数值要怎么变化, 工作/建筑的进度之类的. 然后交给 GL 渲染对应的画面.</p>
+<h3>tick</h3>
+<p>上面的文档里面提到过 tick 的概念.</p>
+<pre><code class="language-java">/**
+ * Called after each tick. A tick is an update of the game. the game is typically
+ * updated 60 times per second. Check your conditions here, and act on them. 
+ * @param ds - how many seconds of in-game time that has passed since the previous update.
+ */
+abstract void update(double ds);
+</code></pre>
+<p>Updater 线程是一个 loop, 一般会每秒执行 60 次, 用于和 GL 线程的 60 FPS 渲染同步.
+每执行一次 loop 就称作一个 tick.</p>
+<p>mod 的逻辑尽量都在 Updater 线程里面执行. 怎么知道有没有在 Updater 线程里面执行? 如果你没有用很 hack 的方式 mod 一般都是在 Updater 里面执行的, 因为上面说的 update 方法就是 Updater 线程里面执行的.</p>
+<p>不推荐在 Updater 以外执行的原因是, 在外部修改的状态会跨越多个 tick. 游戏内部代码 TmpArea 用于决定创建工地大小的类, 假设了在一个 tick 里面只允许使用一次. 其他的类可能也会有类似的假设, 跨 tick 的修改会违反这些假设.</p>
+</body></html>

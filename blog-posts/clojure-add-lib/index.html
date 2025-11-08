@@ -1,0 +1,24 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>JAVA repl 运行时添加 maven / clojure lib | The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:title" content="JAVA repl 运行时添加 maven / clojure lib"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/clojure-add-lib/"></head><body><header><a href="/">首页</a></header><p>之前已经在 <a href="">使用 clojure repl 调试 JAVA 程序</a> 里面讲过怎么把 clojure jack in 到 java 进程中.
+这篇文章描述怎么在 jack in 之后动态添加依赖库.</p>
+<p>clojure 在 1.12 版本新增了 clojure.repl.deps.add-lib 函数.</p>
+<pre><code class="language-clojure">(add-lib 'groupId/artifactId {:mvn/version "latest-version"})
+</code></pre>
+<p>会自动找到 groupId/artifactId 对应版本并下载, 同时如果有 transitive 依赖, 也会自动下载. 并且加到当前进程的 classpath 里面. 之后就可以使用了.</p>
+<p>但是在 jack in JAVA 进程的 repl 里面运行上面的代码, 会提示找不到 groupId/artifactId 依赖的某个 maven 库. 这是因为 add-lib 必须要有 <code>basis</code> 才能使用. <code>basis</code> 可以看作是 clojure 环境的配置, 平时写 deps.edn 里面的配置的 paths, deps, aliases 之类的会包含在 basis 里面. 如果在 clojure cli 启动的进程里面运行</p>
+<pre><code class="language-clojure">(require '[clojure.java.basis :as basis])
+(basis/current-basis)
+</code></pre>
+<p>返回的就是当前的 basis, 如果在 java 启动的进程里面运行, 返回的是 nil. 这是因为 clojure cli 会在启动的时候创建 basis.</p>
+<p>想要创建 basis 可以用</p>
+<pre><code class="language-clojure">(require '[clojure.java.basis.impl :as basis-impl])
+(require '[clojure.tools.deps :as deps])
+
+(basis-impl/update-basis! 
+(constantly (merge (deps/create-basis {})
+                    {:mvn/repos {"central" {:url "https://repo1.maven.org/maven2/"}
+                                "clojars" {:url "https://repo.clojars.org/"}}})))
+</code></pre>
+<p><code>(deps/create-basis {})</code> 创建一个默认的 basis. 返回的就是一个 map data. 可以自己在上面进行修改, 例如添加 maven repo.
+最后用 <code>update-basis!</code> 把这个新建出来的 basis 替换掉当前的全局 basis.<br>
+有了全局 basis 之后, 就可以使用 add-lib 了.</p>
+</body></html>
