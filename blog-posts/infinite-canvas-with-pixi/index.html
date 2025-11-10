@@ -1,0 +1,10 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/infinite-canvas-with-pixi/"></head><body><header><a href="/">首页</a></header><p>用 pixi.js 可以做 infinite canvas.</p>
+<p>pixi 里面有 scene tree 的概念, 每个 component 的 translate 都是基于 parent 的.
+也就是如果 top level parent 在 (0, 0) 位置, child 在 (10, 10) 位置. 那么 child 的 global 位置是 (10, 10).
+如果移动 parent 到 (10, 10), 那么 child 的 global 位置就变成了 (20, 20).</p>
+<p>利用这点, 就可以做全局的 zooming 和 panning. 对 top level container 做 scale 或者 translate, 会对里面所有的 component 都生效.</p>
+<p>pixi 里面的事件都是在某个 component 是监听的, 如果把鼠标 drag 和 zoom 之类的事件交给 top level component 监听. 那么会出现一个问题, 当 top level component 被拖动到中间的时候.
+这个 component 的左上部分是不包含 component 的, 所以这个地方不会再监听了, 这个区域触发不了 zoom and pan.
+解决方式是用两个 top level, 一个是固定不动, 大小和屏幕一样大, 只负责监听的, 当要移动的时候, 移动的是另一个.</p>
+<p>剩下的问题, 就是在 canvas 里面把各种 UI 界面补起来了, 例如 text input, button 之类的.</p>
+</body></html>
