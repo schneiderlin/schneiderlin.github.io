@@ -1,0 +1,50 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/dev-speed/"></head><body><header><a href="/">首页</a></header><h2>微服务</h2>
+<p>开发效率问题, 怎么提高开发的效率.</p>
+<p>微服务的好处是什么</p>
+<ol>
+<li>某个模块的并发量可能比其他模块高, 单独拆出来可以独立扩容, 不影响其他服务</li>
+<li>每个团队/开发成员可以专注各自负责的服务, 不容易代码冲突</li>
+<li>可以有不同的技术栈</li>
+</ol>
+<p>微服务带来的问题</p>
+<ol>
+<li>提高开发成本, RPC 调用比本地调用需要处理的东西更多, 网络不可靠.</li>
+<li>需要额外基础设施做监控, 调度</li>
+<li>错误的划分服务会导致一些业务难以实现</li>
+</ol>
+<p>提倡拆分模块, 而不是拆分服务.
+数据库等存储还是同一个, 只是逻辑上拆分.
+拆分模块也可以让每个团队/成员负责各自模块, 不容易冲突.
+微服务的第二个优点可以被利用起来, 第三个优点不算特别重要.</p>
+<p>拆分服务只有第一点是真正需要考虑的, 应该在真正有需要的时候才拆分.</p>
+<h2>复制和复用代码</h2>
+<p>复制代码和提取公共代码并复用的差异</p>
+<p>在复制代码的场景下, 有多个复制后的副本.
+在提取代码的场景下, 公共代码有多个调用方.</p>
+<p>考虑是复制还是提取公共代码的时候, 最关键的因数是, 改动其中的一个副本/调用方, 是否想要影响其他的副本/调用方.</p>
+<p>公共代码对于实现者的要求高, 需要设计良好的接口.</p>
+<p>如果是一次性的代码, 或者实现完永远不改变需求的代码, 不需要考虑维护成本.</p>
+<p>把一部分代码做成第三方库, 可以避免低水平的开发者修改公共代码.
+第三方库以外的胶水代码保持在可以随时删掉, 在一周内能重写的复杂度.</p>
+<p>真的可以只写很少的胶水代码, 定制足够复杂的功能吗?
+怎么验证?</p>
+<h2>代码作为资产</h2>
+<p>把一些通用的代码做成第三方库, 例如 登录, 字典, 动态配置, 文件上传, excel 导出, 权限, 角色.
+前端的代码复用可以用 UISM 和 fulcro, 加上 component library 例如 storybook</p>
+<h2>小众技术栈</h2>
+<p>关于选用很小众的技术栈, 例如 clojure datomic rama fulcro pathom.
+开发效率很高, 但是基本上找不到可以直接上手就工作的人, 必须要经过一段时间培训.
+一个人的开发效率也很高, 但是一个人的精力总是有限的.</p>
+<p>可以试着主流技术和niche技术栈结合, 核心的部分用 clj 写, 把实现隐藏起来, 对外暴露 API 或者事件之类的.
+扩展点也可以用主流的技术写.</p>
+<p>核心库的文档, 这部分是只有核心团队才会维护的, 就可以用 clj 做.</p>
+<h2>java clay</h2>
+<p>jack in 到 java 环境里面, 用 clay 写文档.
+首先需要 clone 一个 java 项目跑起来, 在这个 java 项目里面开一个 clojure nrepl.
+语法补全应该是 cider-nrepl 提供的, 把 nrepl 和 cider-nrepl 的版本提高了之后, 不需要额外再加 jar, calva 就自带补全了.
+并且还可以 load 本地 clojure 代码了, 这样就可以把一些公共的代码抽出来用, 不需要整天写 load-file 之类的, load 完还没有提示了.</p>
+<h2>monorepo</h2>
+<p>monorepo 的好处是, 在开发的时候, 所有项目的 source code 都在一起, 不管是 application 还是 library 还是 framework.
+在写 application 的时候, 如果发现 lib 的扩展性不够, 可以快速的切换到 lib 里面修改代码. 不需要发版就可以在 application 用最新的 lib 代码.
+在 clojure 社区 polylith 可以做到, clj 和 java 的 interop 这么牛比. polylith 应该也能用到 java maven 项目上面?</p>
+</body></html>

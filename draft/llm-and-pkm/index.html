@@ -1,0 +1,16 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:url" content="https://schneiderlin.github.io/draft/llm-and-pkm/"></head><body><header><a href="/">首页</a></header><p>我一直想搞 LLM 和 PKM 的结合, 从 LLM 刚出来的时候, 就在想怎么给他接上我自己的数据
+现在市面上已经有很多类似的库了, RAG + LLM. 但是我想 hack, 有时候一个 LLM 的输出效果不好, 我想要看他的思考过程, 是因为哪些 input 导致这个 output的.
+如果我能够快速的调整, 类似 clojure repl 的 workflow, AI 不是一次性 build 出来的. 而是在 build 的过程中, 不断的 interaction.</p>
+<p>所以我要用 clojure 作为框架 [[clojure as a framework]]</p>
+<p>同时 LLM 使用本地的 LLM, 多重考虑, 1. 省钱 2. 隐私问题 3. 国内买 LLM 服务麻烦
+做 PKM 的第一步首先是需要有足够多的 notes, 这些 note 也需要够灵活. 如果是放在 notion 的, 那么就不那么灵活, 因为需要网络, 需要翻墙, 需要 notion API 支持才能访问到自己的数据
+logseq 是 local 的, 但是形式比较单一, 最终落到存储是个 md 文件, 并且这些文件之间的 index 是由 logseq 内部维护的.
+我不单文件想要自己维护, 索引也要自己维护, 因为我要在搜索上做各种 hack.
+最终决定用代码的形式来维护这些文件, again 因为 clojure 是个 framework, 所以我可以自己加很多功能, 例如改造 hiccup. 用 clojure 数据结构来描述富文本
+all just data, hiccup DSL 是 data, 笔记也是 data. 我可以写不同的 interpreter 或者 complier 来处理这些 data
+目前就把 hiccup 渲染成了 HTML, 这样当我想把每个文章分享出去的时候, 发一个 HTML 就好了. 目前所有的页面都是 self contain 的, 不需要任何的客户端 JS 就能阅读</p>
+<p>多少数据才算足够? 有了数据之后能做什么?
+我可以做一些探索性的数据分析, 例如做一个词云
+事情永远是做不完的, 总是会有新的 idea 诞生. 我使用 unfold 的策略, 看这个 PKM 会演化成什么样.</p>
+<p>还可以在 clojure 里面使用 python 库, 我可以用 python 的 jieba 库对我的 hiccup 数据进行分词, 然后做词频分析和词云</p>
+</body></html>
