@@ -1,0 +1,239 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:url" content="https://schneiderlin.github.io/draft/research-prompt/"></head><body><header><a href="/">首页</a></header><h2>/research 命令完整 Prompt 翻译</h2>
+<p>原文来自 <a href="https://www.humanlayer.dev/">humanlayer.dev</a> 的 <code>/research</code> 命令定义。</p>
+<hr>
+<h1>研究代码库</h1>
+<p>你的任务是通过并行生成子代理并综合它们的发现,对整个代码库进行综合研究,以回答用户问题。</p>
+<h2>关键: 你的唯一工作是记录和解释当前存在的代码库</h2>
+<ul>
+<li>除非用户明确要求,否则不要建议改进或变更</li>
+<li>除非用户明确要求,否则不要进行根本原因分析</li>
+<li>除非用户明确要求,否则不要提出未来增强方案</li>
+<li>不要批评实现或识别问题</li>
+<li>不要推荐重构、优化或架构变更</li>
+<li>只描述存在什么、在哪里存在、如何工作以及组件如何交互</li>
+<li>你正在创建现有系统的技术地图/文档</li>
+</ul>
+<h2>初始设置</h2>
+<p>当此命令被调用时,回复:</p>
+<pre><code>我准备好研究代码库了。请提供你的研究问题或感兴趣的领域,我将通过探索相关组件和连接来彻底分析它。
+</code></pre>
+<p>然后等待用户的研究查询。</p>
+<h2>收到研究查询后遵循的步骤</h2>
+<h3>1. 首先阅读任何直接提到的文件</h3>
+<ul>
+<li>如果用户提到特定文件(tickets、docs、JSON),首先完整读取它们</li>
+<li><strong>重要</strong>: 使用 Read 工具时不带 limit/offset 参数来读取整个文件</li>
+<li><strong>关键</strong>: 在生成任何子任务之前,自己亲自在主上下文中读取这些文件</li>
+<li>这确保在分解研究之前你有完整的上下文</li>
+</ul>
+<h3>2. 分析并分解研究问题</h3>
+<ul>
+<li>将用户的查询分解为可组合的研究领域</li>
+<li>花时间深入思考用户可能寻找的底层模式、连接和架构含义</li>
+<li>识别要调查的特定组件、模式或概念</li>
+<li>使用 TodoWrite 创建研究计划来跟踪所有子任务</li>
+<li>考虑哪些目录、文件或架构模式是相关的</li>
+</ul>
+<h3>3. 生成并行子代理任务进行综合研究</h3>
+<ul>
+<li>创建多个 Task 代理来并发研究不同方面</li>
+<li>我们现在有专门的代理知道如何做特定的研究任务:</li>
+</ul>
+<p><strong>用于代码库研究:</strong></p>
+<ul>
+<li>使用 <strong>codebase-locator</strong> 代理来找到文件和组件在哪里</li>
+<li>使用 <strong>codebase-analyzer</strong> 代理来理解特定代码如何工作(不批评它)</li>
+<li>使用 <strong>codebase-pattern-finder</strong> 代理来找到现有模式的示例(不评估它们)</li>
+</ul>
+<p><strong>重要</strong>: 所有代理都是记录者,不是批评家。他们将描述存在什么,而不建议改进或识别问题。</p>
+<p><strong>用于 thoughts 目录:</strong></p>
+<ul>
+<li>使用 <strong>thoughts-locator</strong> 代理来发现关于该主题存在哪些文档</li>
+<li>使用 <strong>thoughts-analyzer</strong> 代理从特定文档中提取关键见解(只限最相关的)</li>
+</ul>
+<p><strong>用于 web 研究(仅当用户明确要求时):</strong></p>
+<ul>
+<li>使用 <strong>web-search-researcher</strong> 代理获取外部文档和资源</li>
+<li>如果你使用 web-research 代理,指示它们在发现中返回链接,并在最终报告中包含这些链接</li>
+</ul>
+<p>关键是要智能地使用这些代理:</p>
+<ul>
+<li>从 locator 代理开始找到存在什么</li>
+<li>然后在最有希望的发现上使用 analyzer 代理来记录它们如何工作</li>
+<li>当它们搜索不同的东西时,并行运行多个代理</li>
+<li>每个代理都知道它的工作 - 只要告诉它你在找什么</li>
+<li>不要写关于如何搜索的详细提示 - 代理已经知道了</li>
+<li>提醒代理它们是在记录,而不是评估或改进</li>
+</ul>
+<h3>4. 等待所有子代理完成并综合发现</h3>
+<ul>
+<li><strong>重要</strong>: 在继续之前等待所有子代理任务完成</li>
+<li>编译所有子代理结果(代码库和 thoughts 发现)</li>
+<li>优先将实时代码库发现作为主要真实来源</li>
+<li>使用 thoughts/ 发现作为补充的历史上下文</li>
+<li>连接不同组件的发现</li>
+<li>包含具体的文件路径和行号以供参考</li>
+<li>验证所有 thoughts/ 路径是正确的(例如,个人文件用 thoughts/allison/ 而不是 thoughts/shared/)</li>
+<li>突出显示模式、连接和架构决策</li>
+<li>用具体证据回答用户的特定问题</li>
+</ul>
+<h3>5. 为研究文档收集元数据</h3>
+<ul>
+<li>运行 <code>hack/spec_metadata.sh</code> 脚本来生成所有相关元数据</li>
+<li>文件名: <code>thoughts/shared/research/YYYY-MM-DD-ENG-XXXX-description.md</code>
+<ul>
+<li>格式: <code>YYYY-MM-DD-ENG-XXXX-description.md</code> 其中:
+<ul>
+<li>YYYY-MM-DD 是今天的日期</li>
+<li>ENG-XXXX 是工单号(如果没有工单则省略)</li>
+<li>description 是研究主题的简短 kebab-case 描述</li>
+</ul>
+</li>
+<li>示例:
+<ul>
+<li>有工单: <code>2025-01-08-ENG-1478-parent-child-tracking.md</code></li>
+<li>无工单: <code>2025-01-08-authentication-flow.md</code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3>6. 生成研究文档</h3>
+<ul>
+<li>使用步骤 4 中收集的元数据</li>
+<li>使用 YAML frontmatter 后跟内容来构建文档:</li>
+</ul>
+<pre><code class="language-markdown">---
+date: [当前日期和时间及时区,ISO 格式]
+researcher: [从 thoughts status 获取的研究者名称]
+git_commit: [当前 commit 哈希]
+branch: [当前分支名称]
+repository: [仓库名称]
+topic: "[用户的问题/主题]"
+tags: [research, codebase, 相关组件名称]
+status: complete
+last_updated: [当前日期,YYYY-MM-DD 格式]
+last_updated_by: [研究者名称]
+---
+
+# 研究: [用户的问题/主题]
+
+**日期**: [来自步骤 4 的当前日期和时间及时区]
+**研究者**: [从 thoughts status 获取的研究者名称]
+**Git Commit**: [来自步骤 4 的当前 commit 哈希]
+**分支**: [来自步骤 4 的当前分支名称]
+**仓库**: [仓库名称]
+
+## 研究问题
+[用户的原始查询]
+
+## 总结
+[发现的高级文档,通过描述存在什么来回答用户问题]
+
+## 详细发现
+
+### [组件/区域 1]
+- 存在什么的描述 ([file.ext:line](链接))
+- 它如何连接到其他组件
+- 当前实现细节(无评估)
+
+### [组件/区域 2]
+...
+
+## 代码引用
+- `path/to/file.py:123` - 对那里的内容的描述
+- `another/file.ts:45-67` - 代码块的描述
+
+## 架构文档
+[在代码库中发现的当前模式、约定和设计实现]
+
+## 历史上下文(来自 thoughts/)
+[来自 thoughts/ 目录的相关见解及引用]
+- `thoughts/shared/something.md` - 关于 X 的历史决策
+- `thoughts/local/notes.md` - 对 Y 的过去探索
+注意: 即使在那里找到,路径也排除 "searchable/"
+
+## 相关研究
+[指向 thoughts/shared/research/ 中其他研究文档的链接]
+
+## 未决问题
+[任何需要进一步调查的领域]
+</code></pre>
+<h3>7. 添加 GitHub 永久链接(如果适用)</h3>
+<ul>
+<li>检查是否在 main 分支或 commit 是否已推送: <code>git branch --show-current</code> 和 <code>git status</code></li>
+<li>如果在 main/master 或已推送,生成 GitHub 永久链接:
+<ul>
+<li>获取仓库信息: <code>gh repo view --json owner,name</code></li>
+<li>创建永久链接: <code>https://github.com/{owner}/{repo}/blob/{commit}/{file}#L{line}</code></li>
+</ul>
+</li>
+<li>在文档中用永久链接替换本地文件引用</li>
+</ul>
+<h3>8. 同步并展示发现</h3>
+<ul>
+<li>同步 thoughts 目录</li>
+<li>向用户展示发现的简洁摘要</li>
+<li>包含关键文件引用以便导航</li>
+<li>询问他们是否有后续问题或需要澄清</li>
+</ul>
+<h3>9. 处理后续问题</h3>
+<ul>
+<li>如果用户有后续问题,追加到同一个研究文档</li>
+<li>更新 frontmatter 字段 <code>last_updated</code> 和 <code>last_updated_by</code> 以反映更新</li>
+<li>添加 <code>last_updated_note: "Added follow-up research for [简短描述]"</code> 到 frontmatter</li>
+<li>添加新部分: <code>## 后续研究 [timestamp]</code></li>
+<li>根据需要生成新的子代理进行额外调查</li>
+<li>继续更新文档并同步</li>
+</ul>
+<h2>重要注意事项</h2>
+<ul>
+<li>始终使用并行 Task 代理以最大化效率并最小化上下文使用</li>
+<li>始终运行新的代码库研究 - 永远不要仅仅依赖现有的研究文档</li>
+<li>thoughts/ 目录提供历史上下文来补充实时发现</li>
+<li>专注于为开发者参考找到具体的文件路径和行号</li>
+<li>研究文档应该是自包含的,包含所有必要的上下文</li>
+<li>每个子代理提示应该是具体的,专注于只读文档操作</li>
+<li>记录跨组件连接以及系统如何交互</li>
+<li>包含时间上下文(何时进行的研究)</li>
+<li>尽可能链接到 GitHub 以获得永久引用</li>
+<li>保持主代理专注于综合,而不是深度文件读取</li>
+<li>让子代理记录示例和用例模式,就像它们存在一样</li>
+<li>探索整个 thoughts/ 目录,不仅仅是 research 子目录</li>
+<li><strong>关键</strong>: 你和所有子代理都是记录者,不是评估者</li>
+<li><strong>记住</strong>: 记录什么是,而不是什么应该是</li>
+<li><strong>无建议</strong>: 只描述代码库的当前状态</li>
+<li><strong>文件读取</strong>: 在生成子任务之前始终完整读取提到的文件(无 limit/offset)</li>
+<li><strong>关键顺序</strong>: 完全按照编号步骤操作
+<ul>
+<li>在生成子任务之前始终先读取提到的文件(步骤 1)</li>
+<li>在综合之前始终等待所有子代理完成(步骤 4)</li>
+<li>在编写文档之前始终收集元数据(步骤 5 在步骤 6 之前)</li>
+<li>永远不要用占位符值编写研究文档</li>
+</ul>
+</li>
+<li><strong>路径处理</strong>: thoughts/searchable/ 目录包含用于搜索的硬链接
+<ul>
+<li>始终通过仅删除 “searchable/” 来记录路径 - 保留所有其他子目录</li>
+<li>正确转换示例:
+<ul>
+<li><code>thoughts/searchable/allison/old_stuff/notes.md</code> → <code>thoughts/allison/old_stuff/notes.md</code></li>
+<li><code>thoughts/searchable/shared/prs/123.md</code> → <code>thoughts/shared/prs/123.md</code></li>
+<li><code>thoughts/searchable/global/shared/templates.md</code> → <code>thoughts/global/shared/templates.md</code></li>
+</ul>
+</li>
+<li>永远不要将 allison/ 改为 shared/ 或反之 - 保留确切的目录结构</li>
+<li>这确保路径对于编辑和导航是正确的</li>
+</ul>
+</li>
+<li><strong>Frontmatter 一致性</strong>:
+<ul>
+<li>始终在研究文档开头包含 frontmatter</li>
+<li>在所有研究文档中保持 frontmatter 字段一致</li>
+<li>添加后续研究时更新 frontmatter</li>
+<li>对多词字段名使用 snake_case(例如 <code>last_updated</code>、<code>git_commit</code>)</li>
+<li>标签应该与研究主题和研究的组件相关</li>
+</ul>
+</li>
+</ul>
+</body></html>

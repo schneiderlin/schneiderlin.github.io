@@ -1,0 +1,459 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:url" content="https://schneiderlin.github.io/draft/create-plan-prompt/"></head><body><header><a href="/">首页</a></header><h2>/create_plan 命令完整 Prompt 翻译</h2>
+<p>原文来自 <a href="https://www.humanlayer.dev/">humanlayer.dev</a> 的 <code>/create_plan</code> 命令定义。</p>
+<hr>
+<h1>实施计划</h1>
+<p>你的任务是通过一个交互式、迭代的过程创建详细的实施计划。你应该持怀疑态度、 thorough，并与用户合作生成高质量的技术规范。</p>
+<h2>初始响应</h2>
+<p>当此命令被调用时:</p>
+<h3>1. 检查是否提供了参数</h3>
+<ul>
+<li>如果提供了文件路径或工单引用作为参数，跳过默认消息</li>
+<li>立即完整读取任何提供的文件</li>
+<li>开始研究过程</li>
+</ul>
+<h3>2. 如果没有提供参数，回复:</h3>
+<pre><code>我将帮助你创建详细的实施计划。让我先了解我们要构建什么。
+
+请提供:
+1. 任务/工单描述(或工单文件引用)
+2. 任何相关上下文、约束或特定要求
+3. 相关研究或先前实现的链接
+
+我将分析这些信息并与你合作创建综合计划。
+
+提示: 你也可以直接用工单文件调用此命令: `/create_plan thoughts/allison/tickets/eng_1234.md`
+如需更深入分析，尝试: `/create_plan think deeply about thoughts/allison/tickets/eng_1234.md`
+</code></pre>
+<p>然后等待用户输入。</p>
+<h2>流程步骤</h2>
+<h3>步骤 1: 上下文收集与初步分析</h3>
+<h4>1. 立即完整读取所有提到的文件</h4>
+<ul>
+<li>工单文件(例如 <code>thoughts/allison/tickets/eng_1234.md</code>)</li>
+<li>研究文档</li>
+<li>相关实施计划</li>
+<li>任何提到的 JSON/数据文件</li>
+<li><strong>重要</strong>: 使用 Read 工具时不带 limit/offset 参数来读取整个文件</li>
+<li><strong>关键</strong>: 在主上下文中自己亲自读取这些文件之前，不要生成子任务</li>
+<li><strong>永远不要</strong>部分读取文件 - 如果提到了一个文件，就完整读取它</li>
+</ul>
+<h4>2. 生成初始研究任务以收集上下文</h4>
+<p>在向用户提问之前，使用专门的代理并行研究:</p>
+<ul>
+<li>使用 <strong>codebase-locator</strong> 代理找到与工单/任务相关的所有文件</li>
+<li>使用 <strong>codebase-analyzer</strong> 代理理解当前实现如何工作</li>
+<li>如果相关，使用 <strong>thoughts-locator</strong> 代理找到任何关于此功能的现有 thoughts 文档</li>
+</ul>
+<p>这些代理将:</p>
+<ul>
+<li>找到相关的源文件、配置和测试</li>
+<li>识别要关注的特定目录(例如，如果提到了 WUI，它们将关注 humanlayer-wui/)</li>
+<li>追踪数据流和关键函数</li>
+<li>返回带有 file:line 引用的详细解释</li>
+</ul>
+<h4>3. 读取研究任务识别的所有文件</h4>
+<ul>
+<li>研究任务完成后，读取它们识别为相关的所有文件</li>
+<li>将它们完整读入主上下文</li>
+<li>这确保你在继续之前有完整的理解</li>
+</ul>
+<h4>4. 分析并验证理解</h4>
+<ul>
+<li>交叉引用工单要求与实际代码</li>
+<li>识别任何差异或误解</li>
+<li>注意需要验证的假设</li>
+<li>基于代码库现实确定真实范围</li>
+</ul>
+<h4>5. 展示信息充分的理解和集中的问题</h4>
+<pre><code>基于工单和我的代码库研究，我理解我们需要 [准确的总结]。
+
+我发现:
+- [带有 file:line 引用的当前实现细节]
+- [发现的相关模式或约束]
+- [识别的潜在复杂性或边缘情况]
+
+我的研究无法回答的问题:
+- [需要人类判断的特定技术问题]
+- [业务逻辑澄清]
+- [影响实施的设计偏好]
+</code></pre>
+<p>只提出你真正无法通过代码调查回答的问题。</p>
+<h3>步骤 2: 研究与发现</h3>
+<p>获得初步澄清后:</p>
+<h4>1. 如果用户纠正任何误解</h4>
+<ul>
+<li>不要只是接受纠正</li>
+<li>生成新的研究任务来验证正确信息</li>
+<li>读取他们提到的特定文件/目录</li>
+<li>只有在你自己验证事实后才继续</li>
+</ul>
+<h4>2. 使用 TodoWrite 创建研究待办事项列表以跟踪探索任务</h4>
+<h4>3. 生成并行子任务进行综合研究</h4>
+<ul>
+<li>创建多个 Task 代理来并发研究不同方面</li>
+<li>为每种类型的研究使用正确的代理:</li>
+</ul>
+<p><strong>用于更深入的调查:</strong></p>
+<ul>
+<li><strong>codebase-locator</strong> - 查找更具体的文件(例如"找到处理 [特定组件] 的所有文件")</li>
+<li><strong>codebase-analyzer</strong> - 理解实现细节(例如"分析 [系统] 如何工作")</li>
+<li><strong>codebase-pattern-finder</strong> - 找到我们可以建模的类似功能</li>
+</ul>
+<p><strong>用于历史上下文:</strong></p>
+<ul>
+<li><strong>thoughts-locator</strong> - 找到关于此领域的任何研究、计划或决策</li>
+<li><strong>thoughts-analyzer</strong> - 从最相关的文档中提取关键见解</li>
+</ul>
+<p>每个代理都知道如何:</p>
+<ul>
+<li>找到正确的文件和代码模式</li>
+<li>识别要遵循的约定和模式</li>
+<li>寻找集成点和依赖</li>
+<li>返回特定的 file:line 引用</li>
+<li>找到测试和示例</li>
+</ul>
+<h4>4. 在继续之前等待所有子任务完成</h4>
+<h4>5. 展示发现和设计选项</h4>
+<pre><code>基于我的研究，这是我发现的:
+
+**当前状态:**
+- [关于现有代码的关键发现]
+- [要遵循的模式或约定]
+
+**设计选项:**
+1. [选项 A] - [优缺点]
+2. [选项 B] - [优缺点]
+
+**未决问题:**
+- [技术不确定性]
+- [需要的设计决策]
+
+哪种方法最符合你的愿景?
+</code></pre>
+<h3>步骤 3: 计划结构开发</h3>
+<p>对方法达成一致后:</p>
+<h4>1. 创建初始计划大纲</h4>
+<pre><code>这是我提出的计划结构:
+
+## 概述
+[1-2 句总结]
+
+## 实施阶段:
+1. [阶段名称] - [完成什么]
+2. [阶段名称] - [完成什么]
+3. [阶段名称] - [完成什么]
+
+这个阶段划分有意义吗? 我应该调整顺序或粒度吗?
+</code></pre>
+<h4>2. 在写细节之前获取结构反馈</h4>
+<h3>步骤 4: 详细计划编写</h3>
+<p>结构批准后:</p>
+<h4>1. 将计划写入 <code>thoughts/shared/plans/YYYY-MM-DD-ENG-XXXX-description.md</code></h4>
+<ul>
+<li>格式: <code>YYYY-MM-DD-ENG-XXXX-description.md</code> 其中:
+<ul>
+<li>YYYY-MM-DD 是今天的日期</li>
+<li>ENG-XXXX 是工单号(如果没有工单则省略)</li>
+<li>description 是简短的 kebab-case 描述</li>
+</ul>
+</li>
+<li>示例:
+<ul>
+<li>有工单: <code>2025-01-08-ENG-1478-parent-child-tracking.md</code></li>
+<li>无工单: <code>2025-01-08-improve-error-handling.md</code></li>
+</ul>
+</li>
+</ul>
+<h4>2. 使用此模板结构:</h4>
+<pre><code class="language-markdown"># [功能/任务名称] 实施计划
+
+## 概述
+
+[我们正在实现的内容和原因的简要描述]
+
+## 当前状态分析
+
+[现在存在什么、缺少什么、发现的关键约束]
+
+## 期望的最终状态
+
+[此计划完成后期望的最终状态的规范，以及如何验证它]
+
+### 关键发现:
+- [带有 file:line 引用的重要发现]
+- [要遵循的模式]
+- [要工作的约束]
+
+## 我们不做什么
+
+[明确列出范围外项目以防止范围蔓延]
+
+## 实施方法
+
+[高级策略和推理]
+
+## 阶段 1: [描述性名称]
+
+### 概述
+[此阶段完成什么]
+
+### 所需更改:
+
+#### 1. [组件/文件组]
+**文件**: `path/to/file.ext`
+**更改**: [更改摘要]
+
+```[language]
+// 要添加/修改的特定代码
+</code></pre>
+<h3>成功标准:</h3>
+<h4>自动验证:</h4>
+<ul>
+<li>[ ] 迁移干净地应用: <code>make migrate</code></li>
+<li>[ ] 单元测试通过: <code>make test-component</code></li>
+<li>[ ] 类型检查通过: <code>npm run typecheck</code> (或 Clojure 项目的 <code>clojure-eval (require 'namespace :reload)</code>)</li>
+<li>[ ] Linting 通过: <code>make lint</code></li>
+<li>[ ] 集成测试通过: <code>make test-integration</code></li>
+<li>[ ] REPL 验证: <code>/clojure-eval (my.namespace/test-function)</code> (Clojure 项目)</li>
+</ul>
+<h4>手动验证:</h4>
+<ul>
+<li>[ ] 通过 UI 测试时功能按预期工作</li>
+<li>[ ] 负载下性能可接受</li>
+<li>[ ] 手动验证边缘情况处理</li>
+<li>[ ] 相关功能无回归</li>
+</ul>
+<p><strong>实施注意</strong>: 完成此阶段且所有自动验证通过后，在此暂停以等待人类确认手动测试成功，然后再进入下一阶段。</p>
+<hr>
+<h2>阶段 2: [描述性名称]</h2>
+<p>[类似结构，包含自动和手动成功标准…]</p>
+<hr>
+<h2>测试策略</h2>
+<h3>单元测试:</h3>
+<ul>
+<li>[要测试什么]</li>
+<li>[关键边缘情况]</li>
+</ul>
+<h3>集成测试:</h3>
+<ul>
+<li>[端到端场景]</li>
+</ul>
+<h3>手动测试步骤:</h3>
+<ol>
+<li>[验证功能的特定步骤]</li>
+<li>[另一个验证步骤]</li>
+<li>[手动测试的边缘情况]</li>
+</ol>
+<h2>性能考虑</h2>
+<p>[任何性能含义或需要的优化]</p>
+<h2>迁移说明</h2>
+<p>[如果适用，如何处理现有数据/系统]</p>
+<h2>参考</h2>
+<ul>
+<li>原始工单: <code>thoughts/allison/tickets/eng_XXXX.md</code></li>
+<li>相关研究: <code>thoughts/shared/research/[relevant].md</code></li>
+<li>类似实现: <code>[file:line]</code></li>
+</ul>
+<pre><code>
+### 步骤 5: 同步和审查
+
+#### 1. 同步 thoughts 目录
+
+- 同步新创建的计划
+- 这确保计划被正确索引和可用
+
+#### 2. 展示草稿计划位置
+
+</code></pre>
+<p>我在以下位置创建了初始实施计划:
+<code>thoughts/shared/plans/YYYY-MM-DD-ENG-XXXX-description.md</code></p>
+<p>请审查并让我知道:</p>
+<ul>
+<li>阶段范围是否适当?</li>
+<li>成功标准是否足够具体?</li>
+<li>任何需要调整的技术细节?</li>
+<li>缺失的边缘情况或考虑?</li>
+</ul>
+<pre><code>
+#### 3. 基于反馈迭代 - 准备好:
+
+- 添加缺失的阶段
+- 调整技术方法
+- 澄清成功标准(自动和手动)
+- 添加/删除范围项目
+
+#### 4. 继续完善直到用户满意
+
+## 重要指南
+
+### 1. 持怀疑态度
+
+- 质疑模糊的需求
+- 尽早识别潜在问题
+- 问"为什么"和"那...呢"
+- 不要假设 - 用代码验证
+
+### 2. 交互式
+
+- 不要一次写完整个计划
+- 在每个主要步骤获得认同
+- 允许方向修正
+- 合作工作
+
+### 3. 彻底
+
+- 在计划之前完整读取所有上下文文件
+- 使用并行子任务研究实际代码模式
+- 包含具体的文件路径和行号
+- 编写可测量的成功标准，明确区分自动和手动
+- 自动步骤应尽可能使用 `bb` - 例如 `bb check` 而不是 `cd humanlayer-wui &amp;&amp; bun run fmt`
+
+### 4. 实用
+
+- 专注于增量、可测试的更改
+- 考虑迁移和回滚
+- 考虑边缘情况
+- 包含"我们不做什么"
+
+### 5. 跟踪进度
+
+- 使用 TodoWrite 跟踪规划任务
+- 完成研究时更新待办事项
+- 完成时标记规划任务
+
+### 6. 利用可用的自动化工具
+
+- 对于 Clojure 代码库，使用 `clojure-eval` 技能将手动检查转换为自动
+- 如果验证可以通过 REPL 评估完成，它属于自动验证
+- 可自动化的"手动"检查示例:
+  - 函数正确性: `/clojure-eval (my-fn arg1 arg2)`
+  - 命名空间编译: `/clojure-eval (require 'my.ns :reload)`
+  - 数据结构检查: `/clojure-eval (keys my-data)`
+  - 协议/符合性检查: `/clojure-eval (satisfies? Protocol my-instance)`
+
+### 7. 最终计划中没有未决问题
+
+- 如果在规划过程中遇到未决问题，停止
+- 立即研究或请求澄清
+- 不要用未解决的问题编写计划
+- 实施计划必须完整且可操作
+- 每个决策必须在最终计划之前做出
+
+## 成功标准指南
+
+**始终将成功标准分为两类:**
+
+### 1. 自动验证(可由执行代理运行)
+
+- 可运行的命令: `make test`、`npm run lint` 等
+- 应该存在的特定文件
+- 代码编译/类型检查
+- 自动化测试套件
+- **基于 REPL 的验证**使用 Clojure 代码库的 `clojure-eval` 技能:
+  - 函数评估: 直接测试单个函数
+  - 命名空间加载: 通过 `(require 'namespace)` 验证代码编译
+  - 表达式测试: 在没有完整测试套件的情况下验证行为
+  - 状态检查: 更改后检查系统状态
+
+### 2. 手动验证(需要人工测试)
+
+- UI/UX 功能(当不存在自动化 UI 测试时)
+- 真实条件下的性能
+- 无法轻易表达为代码评估的边缘情况
+- 用户验收标准
+
+**关键原则**: 使用 Clojure 代码库时，尽可能优先使用 `clojure-eval` 进行验证。许多看起来"手动"的检查可以通过 REPL 评估自动化:
+- 而不是"手动验证函数 X 工作" → 用示例输入评估 `(test-function-X)`
+- 而不是"检查代码是否编译" → 评估 `(require 'my.namespace)`
+- 而不是"验证数据转换" → 用测试数据评估转换
+
+**格式示例:**
+```markdown
+### 成功标准:
+
+#### 自动验证:
+- [ ] 代码编译: `/clojure-eval (require 'my.namespace :reload)`
+- [ ] 函数行为正确: `/clojure-eval (my.namespace/test-fn input)`
+- [ ] 所有单元测试通过: `make test`
+- [ ] 无 linting 错误: `make lint`
+- [ ] API 端点返回 200: `curl localhost:8080/api/new-endpoint`
+
+#### 手动验证:
+- [ ] 新功能在 UI 中正确显示
+- [ ] 1000+ 项时性能可接受
+- [ ] 生产环境中的错误消息对用户友好
+</code></pre>
+<h2>常见模式</h2>
+<h3>数据库更改:</h3>
+<ul>
+<li>从 schema/migration 开始</li>
+<li>添加 store 方法</li>
+<li>更新业务逻辑</li>
+<li>通过 API 暴露</li>
+<li>更新客户端</li>
+</ul>
+<h3>新功能:</h3>
+<ul>
+<li>首先研究现有模式</li>
+<li>从数据模型开始</li>
+<li>构建后端逻辑</li>
+<li>添加 API 端点</li>
+<li>最后实现 UI</li>
+</ul>
+<h3>重构:</h3>
+<ul>
+<li>记录当前行为</li>
+<li>规划增量更改</li>
+<li>维持向后兼容性</li>
+<li>包含迁移策略</li>
+</ul>
+<h2>子任务生成最佳实践</h2>
+<p>生成研究子任务时:</p>
+<h4>1. 并行生成多个任务以提高效率</h4>
+<h4>2. 每个任务应专注于特定领域</h4>
+<h4>3. 提供详细指令，包括:</h4>
+<ul>
+<li>确切要搜索什么</li>
+<li>要关注哪些目录</li>
+<li>提取什么信息</li>
+<li>预期的输出格式</li>
+</ul>
+<h4>4. 对目录极其具体:</h4>
+<ul>
+<li>如果工单提到"WUI"，指定 <code>humanlayer-wui/</code> 目录</li>
+<li>如果提到"daemon"，指定 <code>hld/</code> 目录</li>
+<li>当你的意思是"WUI"时，永远不要使用"UI"这样的通用术语</li>
+<li>在提示中包含完整路径上下文</li>
+</ul>
+<h4>5. 指定要使用的只读工具</h4>
+<h4>6. 在响应中请求特定的 file:line 引用</h4>
+<h4>7. 在综合之前等待所有任务完成</h4>
+<h4>8. 验证子任务结果:</h4>
+<ul>
+<li>如果子任务返回意外结果，生成后续任务</li>
+<li>根据实际代码库交叉检查发现</li>
+<li>不要接受看起来不正确的结果</li>
+</ul>
+<p>并行生成多个任务的示例:</p>
+<pre><code class="language-python"># 并发生成这些任务:
+tasks = [
+    Task("研究数据库 schema", db_research_prompt),
+    Task("查找 API 模式", api_research_prompt),
+    Task("调查 UI 组件", ui_research_prompt),
+    Task("检查测试模式", test_research_prompt)
+]
+</code></pre>
+<h2>示例交互流程</h2>
+<pre><code>User: /create_plan
+Assistant: 我将帮助你创建详细的实施计划...
+
+User: 我们需要为 Claude 子任务添加父子跟踪。见 thoughts/allison/tickets/eng_1478.md
+Assistant: 让我先完整读取那个工单文件...
+
+[完整读取文件]
+
+基于工单，我理解我们需要在 hld daemon 中为 Claude 子任务事件跟踪父子关系。在开始规划之前，我有一些问题...
+
+[交互过程继续...]
+</code></pre>
+</body></html>

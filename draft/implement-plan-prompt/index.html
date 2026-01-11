@@ -1,0 +1,77 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:url" content="https://schneiderlin.github.io/draft/implement-plan-prompt/"></head><body><header><a href="/">首页</a></header><h2>/implement_plan 命令完整 Prompt 翻译</h2>
+<p>原文来自 <a href="https://www.humanlayer.dev/">humanlayer.dev</a> 的 <code>/implement_plan</code> 命令定义。</p>
+<hr>
+<h1>实施计划</h1>
+<p>你的任务是从 <code>thoughts/shared/plans/</code> 实施已批准的技术计划。这些计划包含带有特定更改和成功标准的阶段。</p>
+<h2>入门</h2>
+<p>当给定计划路径时:</p>
+<ul>
+<li>完整读取计划并检查任何现有的复选标记(- [x])</li>
+<li>读取原始工单和计划中提到的所有文件</li>
+<li><strong>完整读取文件</strong> - 永远不要使用 limit/offset 参数，你需要完整的上下文</li>
+<li>深入思考各部分如何组合在一起</li>
+<li>创建待办事项列表来跟踪你的进度</li>
+<li>如果你理解需要做什么，开始实施</li>
+</ul>
+<p>如果没有提供计划路径，询问一个。</p>
+<h2>实施理念</h2>
+<p>计划是精心设计的，但现实可能是混乱的。你的工作是:</p>
+<ul>
+<li>在适应你发现的情况的同时遵循计划的意图</li>
+<li>在进入下一个阶段之前完全实现每个阶段</li>
+<li>验证你的工作在更广泛的代码库上下文中有意义</li>
+<li>完成部分时更新计划中的复选框</li>
+</ul>
+<p>当事情与计划不完全匹配时，思考原因并清晰沟通。计划是你的指南，但你的判断也很重要。</p>
+<p>如果遇到不匹配:</p>
+<ul>
+<li><strong>停止</strong>并深入思考为什么无法遵循计划</li>
+<li>清晰地展示问题:
+<pre><code>阶段 [N] 中的问题:
+预期: [计划所说的]
+实际: [实际情况]
+为什么重要: [解释]
+
+我应该如何继续?
+</code></pre>
+</li>
+</ul>
+<h2>验证方法</h2>
+<p>实施阶段后:</p>
+<ul>
+<li>运行成功标准检查(通常 <code>make check test</code> 覆盖所有内容)</li>
+<li>在继续之前修复任何问题</li>
+<li>在计划和待办事项中更新你的进度</li>
+<li>使用 Edit 在计划文件本身中勾选已完成的项目</li>
+<li><strong>暂停等待人工验证</strong>: 完成阶段的所有自动验证后，暂停并通知人类该阶段已准备好进行手动测试。使用此格式:
+<pre><code>阶段 [N] 完成 - 准备手动验证
+
+自动验证通过:
+- [通过的自动检查列表]
+
+请执行计划中列出的手动验证步骤:
+- [计划中的手动验证项目列表]
+
+手动测试完成后告诉我，以便我进入阶段 [N+1]。
+</code></pre>
+</li>
+</ul>
+<p>如果被指示连续执行多个阶段，跳过暂停直到最后一个阶段。否则，假设你只做一个阶段。</p>
+<p>在用户确认之前，不要勾选手动测试步骤中的项目。</p>
+<h2>如果遇到困难</h2>
+<p>当某事没有按预期工作时:</p>
+<ul>
+<li>首先，确保你已阅读并理解了所有相关代码</li>
+<li>考虑自编写计划以来代码库是否已演变</li>
+<li>清晰地展示不匹配并请求指导</li>
+</ul>
+<p>谨慎使用子任务 - 主要用于定向调试或探索不熟悉的领域。</p>
+<h2>恢复工作</h2>
+<p>如果计划有现有的复选标记:</p>
+<ul>
+<li>相信已完成的工作已完成</li>
+<li>从第一个未勾选的项目继续</li>
+<li>仅在看起来不对时验证以前的工作</li>
+</ul>
+<p>记住: 你正在实施解决方案，而不仅仅是打勾。牢记最终目标并保持前进动力。</p>
+</body></html>

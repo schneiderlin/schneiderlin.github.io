@@ -1,0 +1,123 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:url" content="https://schneiderlin.github.io/draft/ai-workflow/"></head><body><header><a href="/">首页</a></header><h2>AI Workflow: /research /create_plan /implement_plan</h2>
+<p>这三个命令来自 <a href="https://www.humanlayer.dev/">humanlayer.dev</a> 的 GitHub 仓库,是一套组织 AI 辅助开发的工作流。</p>
+<p>核心理念: <strong>每个环节的输出都是完整的、独立的</strong>。下一个环节只需要读取上一个环节的最终输出,不需要知道中间的出错过程和用户如何介入修复。这样可以避免 context rot。</p>
+<h2>问题切分</h2>
+<p>传统的一问一答式 AI 对话有个问题: 对话越长,context 越多,但有用的信息比例越低。中间的试错、调试、用户修正,这些过程对最终结果有贡献,但对下一步 AI 来说是噪音。</p>
+<p>把任务切分为三个阶段:</p>
+<ol>
+<li><strong>Research</strong> - 收集信息,理解现状</li>
+<li><strong>Create Plan</strong> - 设计方案</li>
+<li><strong>Implement</strong> - 执行方案</li>
+</ol>
+<h2>三个命令</h2>
+<h3>/research</h3>
+<p>收集关于某个问题的信息,结果存放在 <code>thoughts/</code> 目录。</p>
+<p>详细说明: <a href="research-prompt.md">[research-prompt]</a></p>
+<p><strong>输出</strong>: 完整的调研文档,自包含,可独立阅读。</p>
+<h3>/create_plan</h3>
+<p>基于 research 的结果,创建详细的实施计划。</p>
+<p>详细说明: <a href="create-plan-prompt.md">[create-plan-prompt]</a></p>
+<p><strong>输出</strong>: 完整的实施计划,包含要改的文件、改动内容、验证步骤。</p>
+<h3>/implement_plan</h3>
+<p>执行计划,写代码。</p>
+<p>详细说明: <a href="implement-plan-prompt.md">[implement-plan-prompt]</a></p>
+<p><strong>输出</strong>: 代码改动 + 验证结果。</p>
+<h2>人类介入的优先级</h2>
+<p><strong>用户必须认真阅读 research 的输出,确认没问题再进入下一步。</strong></p>
+<p>错误是放大的:</p>
+<ul>
+<li>1 行错误的 research → 100 行错误的 plan</li>
+<li>1 行错误的 plan → 100 行错误的 code</li>
+</ul>
+<p>越早发现问题,成本越低。用户的精力应该放在最影响质量的地方:</p>
+<pre><code>research &gt; plan &gt; implement
+</code></pre>
+<ul>
+<li>Research 阶段要最仔细,理解错了后面全错</li>
+<li>Plan 阶段要审查方案合理性和完整性</li>
+<li>Implement 阶段相对机械,出问题容易修复</li>
+</ul>
+<h2>避免 Context Rot</h2>
+<p>Context rot 是指: 随着对话进行,context 中积累了大量历史信息,但新信息的质量在下降。</p>
+<p>通过这三个命令的切分:</p>
+<table>
+<thead>
+<tr><th>阶段</th><th>输入</th><th>输出</th><th>中间过程</th></tr>
+</thead>
+<tbody>
+<tr><td>/research</td><td>用户问题</td><td>调研文档</td><td>丢弃</td></tr>
+<tr><td>/create_plan</td><td>调研文档</td><td>实施计划</td><td>丢弃</td></tr>
+<tr><td>/implement</td><td>实施计划</td><td>代码改动</td><td>丢弃</td></tr>
+</tbody>
+</table>
+<p>每个阶段只保留<strong>最终输出</strong>,中间的试错、讨论、修正都丢弃。</p>
+<p>下次需要修改时:</p>
+<ul>
+<li>修改计划文件,重新 implement</li>
+<li>或重新 research,更新理解</li>
+</ul>
+<p>不需要回顾之前的对话历史。</p>
+<h2>组合使用</h2>
+<p>典型 workflow:</p>
+<pre><code>/research 理解现有的错误处理机制
+... 阅读 thoughts/error-handling.md ...
+/create_plan 添加统一的错误日志
+... 审阅 thoughts/shared/plans/error-logging.md ...
+/implement_plan thoughts/shared/plans/error-logging.md
+</code></pre>
+<p>每个环节都是<strong>独立的、可重入的</strong>。</p>
+<h2>人类在哪介入</h2>
+<p>每个阶段后都要审查:</p>
+<ul>
+<li>Research 后: <strong>仔细审阅</strong>调研文档,补充遗漏点</li>
+<li>Plan 后: 审阅计划,调整方案</li>
+<li>Implement 后: 手动修复 edge case,更新计划,重新 implement</li>
+</ul>
+<p>介入的产物是<strong>文档</strong>,不是对话历史。</p>
+<h2>和传统对话的区别</h2>
+<p>传统对话:</p>
+<pre><code>User: 帮我加 OAuth
+AI: 好的,先看一下现有代码... 发现了 AuthController...
+User: 不对,认证逻辑在 AuthService 里
+AI: 明白,那我们在 AuthService 加...
+... (几十轮来回)
+</code></pre>
+<p>三阶段:</p>
+<pre><code>/research 认证模块
+--&gt; thoughts/auth-module.md (完整文档)
+
+/create_plan 添加 OAuth
+--&gt; thoughts/shared/plans/oauth.md (完整计划)
+
+/implement_plan thoughts/shared/plans/oauth.md
+--&gt; 代码改动
+</code></pre>
+<p>如果有问题,修改计划文件,重新 implement。不需要回顾之前 AI 走了哪些弯路。</p>
+<h2>状态外置</h2>
+<p>对话历史是 transient state,容易丢失。</p>
+<p>文档和代码是 persistent state,是"真理的来源"。</p>
+<p>三阶段 workflow 把状态外置到文件系统:</p>
+<ul>
+<li><code>thoughts/</code> - 知识</li>
+<li><code>thoughts/shared/plans/</code> - 计划</li>
+<li>代码 - 实现</li>
+</ul>
+<p>AI 每次执行只读取需要的文件,不依赖历史对话。</p>
+<h2>可审计性</h2>
+<p>每个阶段的产出都是可读的文档:</p>
+<ul>
+<li>Research 文档可以当作项目的知识库</li>
+<li>Plan 文档可以当作技术设计文档</li>
+<li>Implement 的改动就是 git commit</li>
+</ul>
+<p>人类可以 review 这些文档,AI 也可以基于这些文档继续工作。</p>
+<h2>总结</h2>
+<p>/research /create_plan /implement_plan 的核心思想:</p>
+<ol>
+<li><strong>切分</strong> - 把大任务分解为独立的阶段</li>
+<li><strong>输出完整</strong> - 每个阶段的输出是自包含的文档</li>
+<li><strong>丢弃过程</strong> - 中间过程不传递给下一阶段</li>
+<li><strong>状态外置</strong> - 用文件而不是对话历史存储状态</li>
+</ol>
+<p>这样 AI 辅助开发就可以像传统开发一样,每个步骤的输入输出都是清晰的、可审查的、可重入的。</p>
+</body></html>
