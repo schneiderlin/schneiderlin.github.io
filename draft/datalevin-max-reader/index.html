@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/datalevin-max-reader/"></head><body><header><a href="/">首页</a></header><p>max reader 是可以同时有多少个 reader 读 database file.
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:url" content="https://schneiderlin.github.io/draft/datalevin-max-reader/"></head><body><header><a href="/">首页</a></header><p>max reader 是可以同时有多少个 reader 读 database file.
 LMDB 理论上是不限制 reader 数量的, reader 之间不需要 coordinate.</p>
 <p>reader 好像是占用一个 thread, 所以数量不能是无线. LMDB 层面做了限制.
 datalevin 上面好像没有明确 manage reader 的代码.</p>

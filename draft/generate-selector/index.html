@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/generate-selector/"></head><body><header><a href="/">首页</a></header><p>网页自动化的时候, 需要用 selector 定位元素. 但是有一些网站的 accessability 做得不好, 很多的元素没有 id, 或者没有什么唯一的标识能定位到这个元素.
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:url" content="https://schneiderlin.github.io/draft/generate-selector/"></head><body><header><a href="/">首页</a></header><p>网页自动化的时候, 需要用 selector 定位元素. 但是有一些网站的 accessability 做得不好, 很多的元素没有 id, 或者没有什么唯一的标识能定位到这个元素.
 希望能自动生成 selector 规则. 好的 selector 应该有以下的 properties</p>
 <ul>
 <li>稳定, 如果页面变更, 例如文案稍微修改, 加了一些 wrapper tag, 例如套多了一层 div 元素加了个边框, 页面小规模 rearrange 元素. 在页面变更的时候, 还能定位到之前的元素</li>

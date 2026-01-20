@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/infinite-canvas-with-pixi/"></head><body><header><a href="/">首页</a></header><p>用 pixi.js 可以做 infinite canvas.</p>
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><title>The Powerblog</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:url" content="https://schneiderlin.github.io/draft/infinite-canvas-with-pixi/"></head><body><header><a href="/">首页</a></header><p>用 pixi.js 可以做 infinite canvas.</p>
 <p>pixi 里面有 scene tree 的概念, 每个 component 的 translate 都是基于 parent 的.
 也就是如果 top level parent 在 (0, 0) 位置, child 在 (10, 10) 位置. 那么 child 的 global 位置是 (10, 10).
 如果移动 parent 到 (10, 10), 那么 child 的 global 位置就变成了 (20, 20).</p>
