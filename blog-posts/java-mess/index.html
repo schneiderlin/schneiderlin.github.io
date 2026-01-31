@@ -1,0 +1,84 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="Me rant about Java and Java devs"><title>Many Java Codebases Are a Mess</title><link rel="icon" type="image/svg+xml" href="/038e7b9ecee8/favicon.svg"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Serif+SC:wght@400;500;600;700&amp;display=swap"><link rel="stylesheet" href="/css/styles.css"><style>
+      #progress-bar {
+        --progress: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 3px;
+        width: var(--progress);
+        background-color: var(--primary-600);
+        z-index: 9999;
+        transition: width 0.1s ease-out;
+      }
+      .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+    </style><meta property="og:title" content="Many Java Codebases Are a Mess"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/java-mess/"></head><body class="min-h-screen flex flex-col"><nav class="layout-nav-bar"><div class="layout-container"><div class="layout-nav-row"><a class="layout-nav-logo" href="/"><div class="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16v12H4z"></path><path d="M8 20h8"></path><path d="M12 16v4"></path></svg></div><span class="layout-nav-logo-text text-lg font-medium tracking-tight">LinZiHao</span></a><div class="hidden md:flex items-center gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div><button id="mobile-menu-button" class="md:hidden p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all duration-300" type="button" aria-controls="navbar-default" aria-expanded="false"><span class="sr-only">打开菜单</span><svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 17 14"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h15M1 7h15M1 13h15"></path></svg></button></div><div id="navbar-default" class="hidden md:hidden border-t border-border-default py-2"><div class="flex flex-col gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div></div></div></nav><main class="flex-1"><div id="progress-bar"></div><div class="layout-container layout-section-spacing"><header class="layout-content-header"><div class="flex flex-wrap justify-center gap-2 section-heading-spacing"><span class="badge badge-neutral">java</span></div><h1 class="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight section-heading-spacing heading-center">Many Java Codebases Are a Mess</h1><p class="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed section-heading-spacing heading-center">Me rant about Java and Java devs</p><div class="flex items-center justify-center gap-4 text-sm text-gray-600 section-meta-spacing"><div class="flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg><span>2024-09-14</span></div></div></header><div class="mx-auto"><div class="flex flex-col lg:flex-row gap-6 lg:gap-8 xl:gap-12"><aside class="hidden lg:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"></div></aside><article class="layout-main-content"><div class="prose prose-lg max-w-none"><p>I have seen many examples of how a Java codebase turns into a mess.
+Every developer talks about decoupling, testability, and ease of refactoring. Yet, they use many features of Spring to turn their codebase into brittle spaghetti.</p>
+<p>When you just want to call a method:</p>
+<p>A method is inside a class, so to call a method, you first need to create an instance of the class.
+That class is usually not easy to create, often doesn’t provide a constructor, or its creation needs to go through a complex process.
+They even invented a design pattern for this, called the <code>factory pattern</code>.</p>
+<p>Now you have a class and call a method. BOOM! Inside that method, somewhere in the call stack, it requires some ‘Bean’ to be present in the ‘SpringContext’.</p>
+<h2>Hiding the Wrong Things</h2>
+<p>Abstraction is necessary, but it should only hide unimportant details, not the wrong things.</p>
+<p>For example, can I trace what happens when a web request comes in?
+Where should I put the breakpoint or log? It’s just some annotations. Where can I check what the request looks like?</p>
+<pre><code class="language-java">@RestController("api")
+public class XXController {
+    @GetMapping("test")
+    public void test() {
+        System.out.println("test");
+    }
+}
+</code></pre>
+<p>It does too much magic. I can only go to <code>RestController</code> or <code>RequestMapping</code> definition, but it ends there.
+It requires deep knowledge of the framework to continue reasoning.</p>
+<p>It also hides how the request turns into custom object parameters in the controller method.</p>
+<pre><code class="language-java">@GetMapping("test")
+public void test(SomeObject o) {
+    System.out.println("test");
+}
+</code></pre>
+<p>How does this SomeObject get created? Can I change the deserialization logic?
+If some field is missing, how do I debug? Again, the function <code>request -&gt; SomeObject</code> is not defined by the developer; it only exposes some configuration or annotations.</p>
+<p>Not to mention, the return value, authentication, and authorization are also hidden by some “convention” spring-boot-starter library.
+Some even use <code>ThreadLocal</code> to store context for later use, but it’s not something developers can easily configure.
+When and where the handler function gets called is also not clear.</p>
+<p>Let’s give another example: where do you put breakpoints in various ORM libraries to inspect the generated SQL without executing the database?
+Some provide log options, but I’m not talking about that. I mean truly controlling that piece of logic, for example, adding some custom checks to the SQL or adding filters to forbid some SQL from executing.
+Good luck finding cues.</p>
+<h2>Tangled Input</h2>
+<p>Autowiring also introduces implicit input.
+Input is everything that will affect the behavior of a method.
+Method parameters are input. Using variables from outside of the method’s scope, those variables are input. If the method depends on date and time, then time is also input. If the method gets values from ThreadLocal, then the running thread is also input.</p>
+<p>Autowiring creates the second kind of input: variables from outside of the method’s scope.
+Anything that is input but not a parameter is implicit input.
+It prevents local reasoning about a method.</p>
+<p>It gives up a tremendously valuable property, making refactoring very hard.
+Java developers, when refactoring, constantly need to think about the impact of changes, just because it’s not local.
+Even if local behavior is correct and tested, they need to always keep an eye out for effects on other parts of the system in some strange way.</p>
+<h2>Conclusion</h2>
+<p>Think about the first principle: does it really make code easier to reason about and change?
+Don’t use fancy features or “design patterns” just because you think they’re cool or because it’s what others are doing.
+50% of developers are below average BTW.</p>
+</div></article><aside class="hidden xl:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"><div class="section-label">Backlinks</div><div class="text-muted-italic">Coming soon...</div></div></aside></div></div></div><script>(function() {  const headings = document.querySelectorAll('.prose h2, .prose h3, .prose h4, .prose h5, .prose h6');  const tocLinks = document.querySelectorAll('.toc a');  if (headings.length === 0 || tocLinks.length === 0) return;  function updateActiveHeading() {    let currentActiveIndex = 0;    const scrollOffset = 120;    headings.forEach(function(heading, index) {      const rect = heading.getBoundingClientRect();      if (rect.top &lt;= scrollOffset) { currentActiveIndex = index; }    });    tocLinks.forEach(function(link, index) {      if (index === currentActiveIndex) {        link.classList.add('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.remove('text-gray-600', 'text-gray-600');      } else {        link.classList.remove('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.add('text-gray-600');      }    });  }  document.addEventListener('scroll', updateActiveHeading, { passive: true });  window.addEventListener('resize', updateActiveHeading);  updateActiveHeading();})();</script></main><footer class="layout-footer"><div class="layout-container layout-footer-inner"><div class="flex flex-col items-center justify-center gap-8"><nav class="flex flex-wrap justify-center gap-8"><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.linkedin.com/in/zihao-lin-8b8067326/" target="_blank" rel="noopener noreferrer">LinkedIn</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://x.com/fTJSaF2VnI11762" target="_blank" rel="noopener noreferrer">X (Twitter)</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://space.bilibili.com/375039815" target="_blank" rel="noopener noreferrer">Bilibili</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.zhihu.com/people/lin-zi-hao-8-89" target="_blank" rel="noopener noreferrer">Zhihu</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://github.com/schneiderlin" target="_blank" rel="noopener noreferrer">GitHub</a></nav><p class="text-base text-gray-600">© 2026 LinZiHao. All rights reserved.</p></div></div></footer><script>document.getElementById('mobile-menu-button').addEventListener('click', function() {
+    var menu = document.getElementById('navbar-default');
+    menu.classList.toggle('hidden');
+  });</script><script>(function() {
+    const progressBar = document.getElementById('progress-bar');
+    if (progressBar) {
+      function updateProgressBar() {
+        const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrollPercent = scrollHeight &gt; 0 ? (scrollTop / scrollHeight) * 100 : 0;
+        progressBar.style.setProperty('--progress', scrollPercent + '%');
+      }
+      document.addEventListener('scroll', updateProgressBar, { passive: true });
+      window.addEventListener('resize', updateProgressBar);
+      updateProgressBar();
+    }
+  })();</script></body></html>

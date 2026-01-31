@@ -1,0 +1,116 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="An implementation of a distributed mutex using Akka, exploring logical timestamps and consensus algorithms. This post introduces the problem, outlines the requirements for the distributed lock, and sets up the basic Akka actor structure for the solution."><title>akka实现logical timestamp和分布式锁, part 1-1: 问题描述和总体框架</title><link rel="icon" type="image/svg+xml" href="/038e7b9ecee8/favicon.svg"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Serif+SC:wght@400;500;600;700&amp;display=swap"><link rel="stylesheet" href="/css/styles.css"><style>
+      #progress-bar {
+        --progress: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 3px;
+        width: var(--progress);
+        background-color: var(--primary-600);
+        z-index: 9999;
+        transition: width 0.1s ease-out;
+      }
+      .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+    </style><meta property="og:title" content="akka实现logical timestamp和分布式锁, part 1-1: 问题描述和总体框架"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/mutex-in-akka-1-1/"></head><body class="min-h-screen flex flex-col"><nav class="layout-nav-bar"><div class="layout-container"><div class="layout-nav-row"><a class="layout-nav-logo" href="/"><div class="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16v12H4z"></path><path d="M8 20h8"></path><path d="M12 16v4"></path></svg></div><span class="layout-nav-logo-text text-lg font-medium tracking-tight">LinZiHao</span></a><div class="hidden md:flex items-center gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div><button id="mobile-menu-button" class="md:hidden p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all duration-300" type="button" aria-controls="navbar-default" aria-expanded="false"><span class="sr-only">打开菜单</span><svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 17 14"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h15M1 7h15M1 13h15"></path></svg></button></div><div id="navbar-default" class="hidden md:hidden border-t border-border-default py-2"><div class="flex flex-col gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div></div></div></nav><main class="flex-1"><div id="progress-bar"></div><div class="layout-container layout-section-spacing"><header class="layout-content-header"><div class="flex flex-wrap justify-center gap-2 section-heading-spacing"><span class="badge badge-neutral">scala</span><span class="badge badge-neutral">distributed-system</span><span class="badge badge-neutral">akka</span></div><h1 class="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight section-heading-spacing heading-center">akka实现logical timestamp和分布式锁, part 1-1: 问题描述和总体框架</h1><p class="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed section-heading-spacing heading-center">An implementation of a distributed mutex using Akka, exploring logical timestamps and consensus algorithms. This post introduces the problem, outlines the requirements for the distributed lock, and sets up the basic Akka actor structure for the solution.</p><div class="flex items-center justify-center gap-4 text-sm text-gray-600 section-meta-spacing"><div class="flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg><span>2018-12-25</span></div></div></header><div class="mx-auto"><div class="flex flex-col lg:flex-row gap-6 lg:gap-8 xl:gap-12"><aside class="hidden lg:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"></div></aside><article class="layout-main-content"><div class="prose prose-lg max-w-none"><p>用akka实现一个分布式锁，并且模拟各种网络环境进行测试(延迟，重复，乱序，丢包等)，这个实现
+必须在所有的网络情况下都能正常工作。</p>
+<p>这个系列分成两部分，第一部分是akka实现一个分布式锁和单元测试。第二部分是用fuzz test的方式
+模拟生成各种网络情况进行测试。</p>
+<p>在第一部分中，主要学习这个分布式锁的协议和logical timestamp，熟悉akka和akkatest。</p>
+<p>要实现一个具有以下属性的分布式锁
+I. 必须要release了才能给另一个process
+II. 给资源的顺序必须和请求资源的顺序相同
+III. 如果每一个拿资源的都会逐渐释放，那么所有请求都会逐渐满足</p>
+<p>注意这里有一个关键是 给资源的顺序必须和请求资源的顺序相同 ，不可以乱序。
+在分布式环境中，可能有一个进程先请求资源，但是由于网络延迟，这个请求信息到达资源方的时候，
+另一个后发的进程已经把资源独占了。</p>
+<p>在一些需要保证资源分配顺序的场景下，需要一个共识算法，这个共识算法在n个进程中对“谁是第一个
+请求资源的进程”达成一致。
+在达成一致后，这个一致认同的进程才会发送请求给资源方，所有其他进程不会竞争。</p>
+<p>进程 –&gt; 共识算法 –&gt; 资源方</p>
+<p>那么现在是不是把进程 –&gt; 资源方的竞速改成了进程 –&gt; 共识算法的竞速？
+首先到达共识算法的进程，会被一致认为是“第一个请求资源的进程”？
+如果是这样，那么这个共识算法就没意义了，只是换了一种竞速的方式。</p>
+<p>这里的关键是进程在给共识算法发请求的时候，带上当前请求的时间戳。共识算法会根据时间戳判断
+究竟是哪个进程先请求的。
+但是在分布式环境中，并不是每一个节点的物理时钟都是同步的，如果有一个节点时钟稍快，那么这个
+节点更有可能抢占资源。所以在分布式环境中不能用物理时钟，要用logical clock</p>
+<h2>用akka重新描述问题</h2>
+<p>在这里每一个进程都是一个Process Actor，进程运行的过程中，偶尔会需要请求资源。</p>
+<blockquote>
+<p>为了方便测试，这里写成一旦Process Actor收到ClientRequest消息，就请求资源。
+实际上请求资源的行为是进程自发的（代码执行到某一个点，需要请求资源），
+并不是收到Client的消息开始请求资源。</p>
+</blockquote>
+<p>在测试的时候，往Process Actor发送ClientRequest消息来模拟进程需要资源。</p>
+<pre><code class="language-scala">case object ClientRequest
+
+class Process(priority: Int) extends Actor {
+  
+  var peers: Set[ActorRef] = Set()
+  var isHoldingResource: Boolean = false
+  
+  override def receive: Receive = {
+    case ClientRequest =&gt;
+      if (isHoldingResource) {
+        sender ! "already holding resource"
+      } else {
+        val request = Request(self, getAndIncrementTimestamp())
+        peers foreach {
+          peer =&gt; peer ! request
+        }
+        ...
+      }
+    }
+}
+</code></pre>
+<p>Request消息是通知其他节点，“我在时间点？请求资源”</p>
+<pre><code class="language-scala">case class Request(actor: ActorRef, timestamp: Timestamp)
+</code></pre>
+<p>peers是所有的其他节点，这里不考虑有节点加入或离开的情况，专注分布式锁协议
+因此peers是提前固定的，在测试开始之前，生成了所有的节点 Set(所有的节点)</p>
+<pre><code class="language-scala">case class SetPeers(peers: Set[ActorRef])
+
+def receive: Receive = {
+  ...
+  case SetPeers(actorRefs) =&gt;
+    this.peers = actorRefs.filter(_ != self)
+  ...
+}
+</code></pre>
+<p>当达成共识之后，用一个println模拟某个进程获取到了资源</p>
+<pre><code class="language-scala">def tryGetResource(): Unit = {
+    if (canGetResource) {
+      isHoldingResource = true
+      println(s"${self.path.name} got the resource")
+    }
+  }
+</code></pre>
+<p>以上就是用akka写这个分布式锁协议的基本框架</p>
+<ul>
+<li>每一个进程是一个Actor</li>
+<li>需要请求资源的时候，给所有的其他节点发送Request消息</li>
+<li>节点之间根据Request消息达成共识</li>
+<li>用println模拟共识算法 –&gt; 资源方</li>
+</ul>
+</div></article><aside class="hidden xl:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"><div class="section-label">Backlinks</div><div class="text-muted-italic">Coming soon...</div></div></aside></div></div></div><script>(function() {  const headings = document.querySelectorAll('.prose h2, .prose h3, .prose h4, .prose h5, .prose h6');  const tocLinks = document.querySelectorAll('.toc a');  if (headings.length === 0 || tocLinks.length === 0) return;  function updateActiveHeading() {    let currentActiveIndex = 0;    const scrollOffset = 120;    headings.forEach(function(heading, index) {      const rect = heading.getBoundingClientRect();      if (rect.top &lt;= scrollOffset) { currentActiveIndex = index; }    });    tocLinks.forEach(function(link, index) {      if (index === currentActiveIndex) {        link.classList.add('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.remove('text-gray-600', 'text-gray-600');      } else {        link.classList.remove('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.add('text-gray-600');      }    });  }  document.addEventListener('scroll', updateActiveHeading, { passive: true });  window.addEventListener('resize', updateActiveHeading);  updateActiveHeading();})();</script></main><footer class="layout-footer"><div class="layout-container layout-footer-inner"><div class="flex flex-col items-center justify-center gap-8"><nav class="flex flex-wrap justify-center gap-8"><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.linkedin.com/in/zihao-lin-8b8067326/" target="_blank" rel="noopener noreferrer">LinkedIn</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://x.com/fTJSaF2VnI11762" target="_blank" rel="noopener noreferrer">X (Twitter)</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://space.bilibili.com/375039815" target="_blank" rel="noopener noreferrer">Bilibili</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.zhihu.com/people/lin-zi-hao-8-89" target="_blank" rel="noopener noreferrer">Zhihu</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://github.com/schneiderlin" target="_blank" rel="noopener noreferrer">GitHub</a></nav><p class="text-base text-gray-600">© 2026 LinZiHao. All rights reserved.</p></div></div></footer><script>document.getElementById('mobile-menu-button').addEventListener('click', function() {
+    var menu = document.getElementById('navbar-default');
+    menu.classList.toggle('hidden');
+  });</script><script>(function() {
+    const progressBar = document.getElementById('progress-bar');
+    if (progressBar) {
+      function updateProgressBar() {
+        const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrollPercent = scrollHeight &gt; 0 ? (scrollTop / scrollHeight) * 100 : 0;
+        progressBar.style.setProperty('--progress', scrollPercent + '%');
+      }
+      document.addEventListener('scroll', updateProgressBar, { passive: true });
+      window.addEventListener('resize', updateProgressBar);
+      updateProgressBar();
+    }
+  })();</script></body></html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="An explanation of how RocketMQ handles disk full scenarios, including the error message, relevant source code, and the disk space checking mechanism."><title>RocketMQ 磁盘满处理方式</title><link rel="icon" type="image/svg+xml" href="/038e7b9ecee8/favicon.svg"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Serif+SC:wght@400;500;600;700&amp;display=swap"><link rel="stylesheet" href="/css/styles.css"><style>
+      #progress-bar {
+        --progress: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 3px;
+        width: var(--progress);
+        background-color: var(--primary-600);
+        z-index: 9999;
+        transition: width 0.1s ease-out;
+      }
+      .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+    </style><meta property="og:title" content="RocketMQ 磁盘满处理方式"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/rocketmq-disk-full/"></head><body class="min-h-screen flex flex-col"><nav class="layout-nav-bar"><div class="layout-container"><div class="layout-nav-row"><a class="layout-nav-logo" href="/"><div class="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16v12H4z"></path><path d="M8 20h8"></path><path d="M12 16v4"></path></svg></div><span class="layout-nav-logo-text text-lg font-medium tracking-tight">LinZiHao</span></a><div class="hidden md:flex items-center gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div><button id="mobile-menu-button" class="md:hidden p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all duration-300" type="button" aria-controls="navbar-default" aria-expanded="false"><span class="sr-only">打开菜单</span><svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 17 14"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h15M1 7h15M1 13h15"></path></svg></button></div><div id="navbar-default" class="hidden md:hidden border-t border-border-default py-2"><div class="flex flex-col gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div></div></div></nav><main class="flex-1"><div id="progress-bar"></div><div class="layout-container layout-section-spacing"><header class="layout-content-header"><div class="flex flex-wrap justify-center gap-2 section-heading-spacing"><span class="badge badge-neutral">rocketmq</span></div><h1 class="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight section-heading-spacing heading-center">RocketMQ 磁盘满处理方式</h1><p class="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed section-heading-spacing heading-center">An explanation of how RocketMQ handles disk full scenarios, including the error message, relevant source code, and the disk space checking mechanism.</p><div class="flex items-center justify-center gap-4 text-sm text-gray-600 section-meta-spacing"><div class="flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg><span>2024-09-03</span></div></div></header><div class="mx-auto"><div class="flex flex-col lg:flex-row gap-6 lg:gap-8 xl:gap-12"><aside class="hidden lg:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"></div></aside><article class="layout-main-content"><div class="prose prose-lg max-w-none"><p>在本地启动 RocketMQ, 用 Producer 推消息的时候发现消息发送失败, 提示磁盘满失败</p>
+<pre><code class="language-text">org.apache.rocketmq.client.exception.MQClientException: Send [3] times, still failed, cost [2148]ms, Topic: TopicTest, BrokersSent: [linzihaos-MacBook-Pro.local, linzihaos-MacBook-Pro.local, linzihaos-MacBook-Pro.local]
+See http://rocketmq.apache.org/docs/faq/ for further details.
+at org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl.sendDefaultImpl(DefaultMQProducerImpl.java:715)
+at org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl.send(DefaultMQProducerImpl.java:1426)
+at org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl.send(DefaultMQProducerImpl.java:1369)
+at org.apache.rocketmq.client.producer.DefaultMQProducer.send(DefaultMQProducer.java:351)
+at org.apache.rocketmq.example.quickstart.Producer.main(Producer.java:79)
+Caused by: org.apache.rocketmq.client.exception.MQBrokerException: CODE: 14  DESC: service not available now. It may be caused by one of the following reasons: the broker's disk is full [CL:  0.90 CQ:  0.90 INDEX:  0.90], messages are put to the slave, message store has been shut down, etc. BROKER: 10.10.1.118:10911
+</code></pre>
+<p>看源码发现 <code>DefaultMessageStore</code> 里面有个定时任务, <code>CleanCommitLogService</code>, 会周期性的检查硬盘状态并做清除操作</p>
+<pre><code class="language-java">private void addScheduleTask() {
+    this.scheduledExecutorService.scheduleAtFixedRate(new AbstractBrokerRunnable(this.getBrokerIdentity()) {
+        @Override
+        public void run2() {
+            DefaultMessageStore.this.cleanFilesPeriodically();
+        }
+    }, 1000 * 60, this.messageStoreConfig.getCleanResourceInterval(), TimeUnit.MILLISECONDS);
+
+    ... // 其他定时器
+}
+</code></pre>
+<p>跟随 <code>cleanFilesPeriodically</code> 的调用链, 调用了 <code>deleteExpiredFiles</code>, 然后 <code>isSpaceToDelete</code>. 在这个方法里面, 检查了实际硬盘容量 <code>minPhysicRatio</code>, 和配置的 warning level <code>getDiskSpaceWarningLevelRatio</code>. 如果实际使用量已经超过预设的比例, 就会把 runningFlags 设置为磁盘已满的状态</p>
+<pre><code class="language-java">private boolean isSpaceToDelete() {
+...
+
+double minPhysicRatio = 100;
+String minStorePath = null;
+for (String storePathPhysic : storePaths) {
+    double physicRatio = UtilAll.getDiskPartitionSpaceUsedPercent(storePathPhysic);
+    if (minPhysicRatio &gt; physicRatio) {
+    minPhysicRatio = physicRatio;
+    minStorePath = storePathPhysic;
+    }
+    if (physicRatio &gt; getDiskSpaceCleanForciblyRatio()) {
+    fullStorePath.add(storePathPhysic);
+    }
+}
+DefaultMessageStore.this.commitLog.setFullStorePaths(fullStorePath);
+if (minPhysicRatio &gt; getDiskSpaceWarningLevelRatio()) {
+    boolean diskFull = DefaultMessageStore.this.runningFlags.getAndMakeDiskFull();
+    if (diskFull) {
+    DefaultMessageStore.LOGGER.error("physic disk maybe full soon " + minPhysicRatio +
+                                        ", so mark disk full, storePathPhysic=" + minStorePath);
+    }
+
+    cleanImmediately = true;
+    return true;
+} else if (minPhysicRatio &gt; getDiskSpaceCleanForciblyRatio()) {
+    cleanImmediately = true;
+    return true;
+} else {
+    boolean diskOK = DefaultMessageStore.this.runningFlags.getAndMakeDiskOK();
+    if (!diskOK) {
+    DefaultMessageStore.LOGGER.info("physic disk space OK " + minPhysicRatio +
+                                    ", so mark disk ok, storePathPhysic=" + minStorePath);
+    }
+}
+
+...
+}
+</code></pre>
+<p>在 <code>HookUtils</code> <code>checkBeforePutMessage</code> 方法中, 会先检查 runningFlags 的状态
+默认的比例是 0.9, 只要磁盘已用超过 90% 就无法再推送消息. 清理磁盘后就可以正常推送消息了</p>
+</div></article><aside class="hidden xl:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"><div class="section-label">Backlinks</div><div class="text-muted-italic">Coming soon...</div></div></aside></div></div></div><script>(function() {  const headings = document.querySelectorAll('.prose h2, .prose h3, .prose h4, .prose h5, .prose h6');  const tocLinks = document.querySelectorAll('.toc a');  if (headings.length === 0 || tocLinks.length === 0) return;  function updateActiveHeading() {    let currentActiveIndex = 0;    const scrollOffset = 120;    headings.forEach(function(heading, index) {      const rect = heading.getBoundingClientRect();      if (rect.top &lt;= scrollOffset) { currentActiveIndex = index; }    });    tocLinks.forEach(function(link, index) {      if (index === currentActiveIndex) {        link.classList.add('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.remove('text-gray-600', 'text-gray-600');      } else {        link.classList.remove('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.add('text-gray-600');      }    });  }  document.addEventListener('scroll', updateActiveHeading, { passive: true });  window.addEventListener('resize', updateActiveHeading);  updateActiveHeading();})();</script></main><footer class="layout-footer"><div class="layout-container layout-footer-inner"><div class="flex flex-col items-center justify-center gap-8"><nav class="flex flex-wrap justify-center gap-8"><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.linkedin.com/in/zihao-lin-8b8067326/" target="_blank" rel="noopener noreferrer">LinkedIn</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://x.com/fTJSaF2VnI11762" target="_blank" rel="noopener noreferrer">X (Twitter)</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://space.bilibili.com/375039815" target="_blank" rel="noopener noreferrer">Bilibili</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.zhihu.com/people/lin-zi-hao-8-89" target="_blank" rel="noopener noreferrer">Zhihu</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://github.com/schneiderlin" target="_blank" rel="noopener noreferrer">GitHub</a></nav><p class="text-base text-gray-600">© 2026 LinZiHao. All rights reserved.</p></div></div></footer><script>document.getElementById('mobile-menu-button').addEventListener('click', function() {
+    var menu = document.getElementById('navbar-default');
+    menu.classList.toggle('hidden');
+  });</script><script>(function() {
+    const progressBar = document.getElementById('progress-bar');
+    if (progressBar) {
+      function updateProgressBar() {
+        const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrollPercent = scrollHeight &gt; 0 ? (scrollTop / scrollHeight) * 100 : 0;
+        progressBar.style.setProperty('--progress', scrollPercent + '%');
+      }
+      document.addEventListener('scroll', updateProgressBar, { passive: true });
+      window.addEventListener('resize', updateProgressBar);
+      updateProgressBar();
+    }
+  })();</script></body></html>

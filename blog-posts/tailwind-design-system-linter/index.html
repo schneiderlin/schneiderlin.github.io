@@ -1,0 +1,140 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="说明当前项目如何落地设计系统 Linter 方案的数据源与规则实现。"><title>本项目的 Tailwind 设计系统 Linter 实现</title><link rel="icon" type="image/svg+xml" href="/038e7b9ecee8/favicon.svg"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Serif+SC:wght@400;500;600;700&amp;display=swap"><link rel="stylesheet" href="/css/styles.css"><style>
+      #progress-bar {
+        --progress: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 3px;
+        width: var(--progress);
+        background-color: var(--primary-600);
+        z-index: 9999;
+        transition: width 0.1s ease-out;
+      }
+      .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+    </style><meta property="og:title" content="本项目的 Tailwind 设计系统 Linter 实现"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/tailwind-design-system-linter/"></head><body class="min-h-screen flex flex-col"><nav class="layout-nav-bar"><div class="layout-container"><div class="layout-nav-row"><a class="layout-nav-logo" href="/"><div class="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16v12H4z"></path><path d="M8 20h8"></path><path d="M12 16v4"></path></svg></div><span class="layout-nav-logo-text text-lg font-medium tracking-tight">LinZiHao</span></a><div class="hidden md:flex items-center gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div><button id="mobile-menu-button" class="md:hidden p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all duration-300" type="button" aria-controls="navbar-default" aria-expanded="false"><span class="sr-only">打开菜单</span><svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 17 14"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h15M1 7h15M1 13h15"></path></svg></button></div><div id="navbar-default" class="hidden md:hidden border-t border-border-default py-2"><div class="flex flex-col gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div></div></div></nav><main class="flex-1"><div id="progress-bar"></div><div class="layout-container layout-section-spacing"><header class="layout-content-header"><div class="flex flex-wrap justify-center gap-2 section-heading-spacing"><span class="badge badge-neutral">design-system</span><span class="badge badge-neutral">linter</span><span class="badge badge-neutral">tooling</span><span class="badge badge-neutral">tailwind</span></div><h1 class="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight section-heading-spacing heading-center">本项目的 Tailwind 设计系统 Linter 实现</h1><p class="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed section-heading-spacing heading-center">说明当前项目如何落地设计系统 Linter 方案的数据源与规则实现。</p><div class="flex items-center justify-center gap-4 text-sm text-gray-600 section-meta-spacing"><div class="flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg><span>2025-01-31</span></div></div></header><div class="mx-auto"><div class="flex flex-col lg:flex-row gap-6 lg:gap-8 xl:gap-12"><aside class="hidden lg:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"></div></aside><article class="layout-main-content"><div class="prose prose-lg max-w-none"><p>本文说明<strong>当前项目</strong>如何落地 <a href="/blog-posts/design-system-linter/">《如何用自定义 Linter 确保样式符合设计系统》</a> 里的方案：数据源、规则实现。</p>
+<hr>
+<h2>1. 整体结构</h2>
+<ul>
+<li><strong>设计系统数据源</strong>：<code>design-system/tokens.edn</code>，定义「允许 / 禁止 / 推荐替换」的 Tailwind 类（供 Linter 使用）。</li>
+<li><strong>实际 design token</strong>：在 <code>resources/public/css/input.css</code> 里，以 CSS 变量 / Tailwind <code>@theme</code> 等形式定义，是最终生效的样式与主题值。<code>style.css</code> 是根据 <code>input.css</code> 自动生成的构建产物（如经 Tailwind 编译），页面引用的是 <code>style.css</code>。</li>
+<li><strong>Lint 框架</strong>：<code>src/powerblog/lint.clj</code>，提供规则注册、Hiccup 遍历、违规收集与报告。</li>
+<li><strong>自定义规则</strong>：<code>dev/lint_rules.clj</code>，包含设计 token 校验及其他规则，在开发环境加载并注册到 <code>powerblog.lint</code>。</li>
+</ul>
+<hr>
+<h2>2. 设计系统数据源：<code>design-system/tokens.edn</code></h2>
+<p>项目用一份 EDN 作为「允许清单」和「替换建议」的单一数据源，供 lint 规则读取。<br>
+<strong>注意</strong>：这里只定义 Linter 的规则数据；真正生效的 design token（颜色、间距、字体等）在 <strong><code>resources/public/css/input.css</code></strong> 中定义（CSS 变量或 Tailwind 配置），编辑主题或新增 token 时应改 <code>input.css</code>，与 <code>tokens.edn</code> 的允许/禁止/推荐列表保持一致。<code>style.css</code> 由 <code>input.css</code> 经构建（如 Tailwind）自动生成，页面实际引用的是 <code>style.css</code>，不要直接改 <code>style.css</code>。</p>
+<h3>2.1 结构说明</h3>
+<table>
+<thead>
+<tr><th>键</th><th>含义</th><th>用途</th></tr>
+</thead>
+<tbody>
+<tr><td><code>allowed-prefixes</code></td><td>允许的类名或类名前缀列表</td><td>白名单：class 要么完全匹配某一项，要么以某一项为前缀，否则可报 warning</td></tr>
+<tr><td><code>disallowed-patterns</code></td><td>禁止出现的子串/模式</td><td>黑名单：class 包含或以此开头则报 error（如 <code>[</code> 表示禁止任意值 <code>[...]</code>，以及 <code>text-blue-</code>、<code>bg-red-</code> 等）</td></tr>
+<tr><td><code>prefer</code></td><td>推荐替换映射</td><td>key 为当前类名，value 为推荐使用的类名；命中则报 warning 建议替换</td></tr>
+</tbody>
+</table>
+<h3>2.2 当前配置要点</h3>
+<ul>
+<li><strong>颜色</strong>：只允许 <code>text-primary-</code>、<code>text-gray-</code>、<code>text-muted-</code>、<code>bg-surface-</code>、<code>bg-primary-</code> 等；禁止 <code>text-blue-</code>、<code>bg-red-</code>、<code>text-green-</code> 等，避免散落色值。</li>
+<li><strong>布局/组件</strong>：允许 <code>layout-*</code>、<code>hero-</code>、<code>heading-</code>、<code>section-</code>、<code>card-*</code>、<code>btn</code>、<code>prose</code>、<code>toc</code> 等语义化类。</li>
+<li><strong>通用工具类</strong>：允许 <code>flex</code>、<code>grid</code>、<code>gap-</code>、<code>p-</code>、<code>m-</code>、<code>rounded-</code>、<code>shadow-</code>、<code>w-</code>、<code>h-</code>、响应式前缀 <code>sm:</code>、<code>md:</code> 等。</li>
+<li><strong>禁止</strong>：<code>[</code> 表示不鼓励任意值写法；并显式禁止一批未纳入设计系统的颜色类。</li>
+<li><strong>推荐替换</strong>：例如 <code>border-gray-200</code> / <code>border-gray-300</code> → <code>border-border-default</code>，统一边框语义。</li>
+</ul>
+<p>规则实现只依赖这三个 key，不关心具体是 Tailwind 还是别的 utility 体系，只要在规则里按「类名字符串」来匹配即可。</p>
+<hr>
+<h2>3. Lint 框架：<code>src/powerblog/lint.clj</code></h2>
+<p>Lint 负责「规则注册 + Hiccup 遍历 + 报告」。</p>
+<h3>3.1 规则注册</h3>
+<ul>
+<li><code>register-rule! [name rule-fn]</code>：注册一条规则，<code>name</code> 为关键字，<code>rule-fn</code> 接收<strong>节点 map</strong>，返回 <strong>violation map 或 nil</strong>。</li>
+<li><code>get-rules</code>：当前已注册规则。</li>
+<li><code>clear-rules!</code>：清空规则（便于测试或重载）。</li>
+</ul>
+<p>节点 map 形如：<code>{:tag :div :attrs {:class "..."} :children [...]}</code>。<br>
+Violation map 需包含 <code>:severity</code>（<code>:error</code> / <code>:warning</code>）和 <code>:message</code>，可选 <code>:element</code>、<code>:attributes</code> 等，由报告逻辑使用。</p>
+<h3>3.2 Hiccup 解析与遍历</h3>
+<ul>
+<li>只处理<strong>向量形式的 Hiccup 元素</strong>（首元素为 keyword tag）。</li>
+<li><code>parse-element</code> 把 <code>[:tag attrs? &amp; children]</code> 解析为 <code>{:tag :attrs :children}</code>。</li>
+<li><code>collect-violations</code> 对整棵 Hiccup 树递归：先对当前节点 <code>apply-rules-to-node</code>，再对子节点递归；子节点会做展开（如 layout 里多段 content 的 seq），保证所有元素都会被检查。</li>
+</ul>
+<h3>3.3 执行与报告</h3>
+<ul>
+<li><code>apply-rules-to-node</code>：对单个节点依次执行所有已注册规则，收集返回的 violation。</li>
+<li><code>run-lint [hiccup]</code>：对一棵 Hiccup 树执行 <code>collect-violations</code>，再 <code>report-violations</code> 把结果打印到控制台（错误数、警告数、每条违规的规则名、元素、属性、消息）。</li>
+</ul>
+<p>这样，任何能产出 Hiccup 的页面/组件（例如 powerblog 的 layout 与页面）都可以传入 <code>run-lint</code> 做一次校验。</p>
+<hr>
+<h2>4. 自定义规则：<code>dev/lint_rules.clj</code></h2>
+<p>自定义规则写在 <code>dev/lint_rules.clj</code>，通过 <code>powerblog.lint/register-rule!</code> 注册，<strong>不会</strong>被 powerpack 库加载，仅在本项目开发环境中生效。</p>
+<h3>4.1 与设计系统相关的规则：<code>check-design-tokens</code></h3>
+<ul>
+<li><strong>数据来源</strong>：调用 <code>get-tokens</code> 读取 <code>design-system/tokens.edn</code>（优先当前目录，再 <code>user.dir</code>），每次执行都重新读文件，改 tokens 不用重启 REPL。</li>
+<li><strong>逻辑</strong>：
+<ol>
+<li>从节点 <code>attrs</code> 里取出 <code>:class</code>，按空白拆成多个 class。</li>
+<li><strong>disallowed</strong>：若某个 class 包含或以其开头命中 <code>disallowed-patterns</code> 中任一项，生成 error。</li>
+<li><strong>prefer</strong>：若 class 在 <code>prefer</code> 的 key 中，生成 warning，提示应改为对应的 value。</li>
+<li><strong>allowed-prefixes</strong>：若配置了 <code>allowed-prefixes</code>，则 class 必须与某一项完全相等或以该项为前缀，否则生成 warning。</li>
+</ol>
+</li>
+<li>多条违规会合并成一条 violation，message 用 <code>"; "</code> 拼接；只要有一条 error 则整体 severity 为 error，否则为 warning。</li>
+</ul>
+<h3>4.2 其他示例规则（同文件）</h3>
+<ul>
+<li><strong>class 命名</strong>：<code>check-class-naming</code>，要求 class 为 kebab-case（不含大写），否则 warning。</li>
+<li><strong>无障碍</strong>：<code>check-img-alt</code>，<code>&lt;img&gt;</code> 必须有 <code>alt</code>，否则 error。</li>
+<li><strong>样式方式</strong>：<code>check-inline-style</code>，存在内联 <code>style</code> 则 warning，建议用 class。</li>
+</ul>
+<p>通过 <code>register-example-rules!</code> 一次性注册以上四条规则（含 <code>check-design-tokens</code>）；在 dev 启动或 REPL 里调用一次即可。</p>
+<hr>
+<h2>5. 使用方式</h2>
+<ol>
+<li><strong>加载规则</strong>（在 REPL 或 dev 入口）：<br>
+<code>(require '[lint-rules])</code> 后执行 <code>(lint-rules/register-example-rules!)</code>。</li>
+<li><strong>对某棵 Hiccup 跑 lint</strong>：<br>
+<code>(require '[powerblog.lint :as lint] '[powerblog.core :as core])</code><br>
+<code>(lint/run-lint core/!debug)</code>（或任意返回 Hiccup 的 var/函数）。</li>
+<li><strong>查看/清理规则</strong>：<br>
+<code>(lint/get-rules)</code>、<code>(lint/clear-rules!)</code>。</li>
+</ol>
+<p>CI 或提交前可以写脚本：加载项目 ns、注册规则、对主要 layout/页面调用 <code>run-lint</code>，根据返回的 violations 决定是否失败。</p>
+<hr>
+<h2>6. 小结</h2>
+<table>
+<thead>
+<tr><th>层次</th><th>文件</th><th>作用</th></tr>
+</thead>
+<tbody>
+<tr><td>数据源（Linter）</td><td><code>design-system/tokens.edn</code></td><td>定义 Tailwind 类的允许前缀、禁止模式、推荐替换</td></tr>
+<tr><td>实际 token（样式）</td><td><code>resources/public/css/input.css</code></td><td>定义真正生效的 design token（CSS 变量 / Tailwind theme）；<code>style.css</code> 由其自动生成，页面引用 <code>style.css</code></td></tr>
+<tr><td>框架</td><td><code>src/powerblog/lint.clj</code></td><td>规则注册、Hiccup 遍历、违规收集与控制台报告（项目自带，非 powerpack）</td></tr>
+<tr><td>规则实现</td><td><code>dev/lint_rules.clj</code></td><td>自定义规则：设计 token 校验、class 命名、img alt、内联 style 等，并注册到 <code>powerblog.lint</code></td></tr>
+</tbody>
+</table>
+<p>这样就把「设计系统 → 允许清单」和「校验逻辑 → 自定义规则」都放在本仓库内，不依赖 powerpack 提供 lint，后续要加新规则或改 tokens 只需改 <code>tokens.edn</code> 和 <code>lint_rules.clj</code>。</p>
+</div></article><aside class="hidden xl:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"><div class="section-label">Backlinks</div><div class="text-muted-italic">Coming soon...</div></div></aside></div></div></div><script>(function() {  const headings = document.querySelectorAll('.prose h2, .prose h3, .prose h4, .prose h5, .prose h6');  const tocLinks = document.querySelectorAll('.toc a');  if (headings.length === 0 || tocLinks.length === 0) return;  function updateActiveHeading() {    let currentActiveIndex = 0;    const scrollOffset = 120;    headings.forEach(function(heading, index) {      const rect = heading.getBoundingClientRect();      if (rect.top &lt;= scrollOffset) { currentActiveIndex = index; }    });    tocLinks.forEach(function(link, index) {      if (index === currentActiveIndex) {        link.classList.add('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.remove('text-gray-600', 'text-gray-600');      } else {        link.classList.remove('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.add('text-gray-600');      }    });  }  document.addEventListener('scroll', updateActiveHeading, { passive: true });  window.addEventListener('resize', updateActiveHeading);  updateActiveHeading();})();</script></main><footer class="layout-footer"><div class="layout-container layout-footer-inner"><div class="flex flex-col items-center justify-center gap-8"><nav class="flex flex-wrap justify-center gap-8"><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.linkedin.com/in/zihao-lin-8b8067326/" target="_blank" rel="noopener noreferrer">LinkedIn</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://x.com/fTJSaF2VnI11762" target="_blank" rel="noopener noreferrer">X (Twitter)</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://space.bilibili.com/375039815" target="_blank" rel="noopener noreferrer">Bilibili</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.zhihu.com/people/lin-zi-hao-8-89" target="_blank" rel="noopener noreferrer">Zhihu</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://github.com/schneiderlin" target="_blank" rel="noopener noreferrer">GitHub</a></nav><p class="text-base text-gray-600">© 2026 LinZiHao. All rights reserved.</p></div></div></footer><script>document.getElementById('mobile-menu-button').addEventListener('click', function() {
+    var menu = document.getElementById('navbar-default');
+    menu.classList.toggle('hidden');
+  });</script><script>(function() {
+    const progressBar = document.getElementById('progress-bar');
+    if (progressBar) {
+      function updateProgressBar() {
+        const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrollPercent = scrollHeight &gt; 0 ? (scrollTop / scrollHeight) * 100 : 0;
+        progressBar.style.setProperty('--progress', scrollPercent + '%');
+      }
+      document.addEventListener('scroll', updateProgressBar, { passive: true });
+      window.addEventListener('resize', updateProgressBar);
+      updateProgressBar();
+    }
+  })();</script></body></html>

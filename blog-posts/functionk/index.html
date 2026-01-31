@@ -1,0 +1,152 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="An exploration of natural transformations between functors in functional programming, introducing the concept of Free functors and demonstrating how to implement conversions between different container types like Monix Task, Scala Future, and Java CompletableFuture."><title>free functor/monad</title><link rel="icon" type="image/svg+xml" href="/038e7b9ecee8/favicon.svg"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Serif+SC:wght@400;500;600;700&amp;display=swap"><link rel="stylesheet" href="/css/styles.css"><style>
+      #progress-bar {
+        --progress: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 3px;
+        width: var(--progress);
+        background-color: var(--primary-600);
+        z-index: 9999;
+        transition: width 0.1s ease-out;
+      }
+      .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+    </style><meta property="og:title" content="free functor/monad"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/functionk/"></head><body class="min-h-screen flex flex-col"><nav class="layout-nav-bar"><div class="layout-container"><div class="layout-nav-row"><a class="layout-nav-logo" href="/"><div class="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16v12H4z"></path><path d="M8 20h8"></path><path d="M12 16v4"></path></svg></div><span class="layout-nav-logo-text text-lg font-medium tracking-tight">LinZiHao</span></a><div class="hidden md:flex items-center gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div><button id="mobile-menu-button" class="md:hidden p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all duration-300" type="button" aria-controls="navbar-default" aria-expanded="false"><span class="sr-only">打开菜单</span><svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 17 14"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h15M1 7h15M1 13h15"></path></svg></button></div><div id="navbar-default" class="hidden md:hidden border-t border-border-default py-2"><div class="flex flex-col gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div></div></div></nav><main class="flex-1"><div id="progress-bar"></div><div class="layout-container layout-section-spacing"><header class="layout-content-header"><div class="flex flex-wrap justify-center gap-2 section-heading-spacing"><span class="badge badge-neutral">scala</span><span class="badge badge-neutral">functional-programming</span></div><h1 class="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight section-heading-spacing heading-center">free functor/monad</h1><p class="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed section-heading-spacing heading-center">An exploration of natural transformations between functors in functional programming, introducing the concept of Free functors and demonstrating how to implement conversions between different container types like Monix Task, Scala Future, and Java CompletableFuture.</p><div class="flex items-center justify-center gap-4 text-sm text-gray-600 section-meta-spacing"><div class="flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg><span>2019-01-02</span></div></div></header><div class="mx-auto"><div class="flex flex-col lg:flex-row gap-6 lg:gap-8 xl:gap-12"><aside class="hidden lg:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"></div></aside><article class="layout-main-content"><div class="prose prose-lg max-w-none"><p>Functor可以用map改变F[_]里面的type<br>
+Monad可以用flatMap改变M[_]里面的type<br>
+那么是否可以保持容器里面的type不变，改变容器的类型。这是一个functor到functor的morphism，是
+natural transformation。</p>
+<p>假如在某个项目中，同时用了Monix的Task，scala collection的Future/Promise，java的CompletableFuture，
+想要在这些容器之间转换，就需要用到natural transformation。</p>
+<h2>如何实现在functor之间转换</h2>
+<p>用一个Free type class，Free像其他的functor一样，都有一个map方法，不过这个map方法不是马上执行的，
+而是有一个延迟(more on this later)。</p>
+<pre><code class="language-scala">sealed triat Free[S[_], A] {
+  def map[B](f: A =&gt; B): Free[S, B] = 
+    Free.Mapped(this, f)
+}
+object Free {
+  final case class Point[S[_], A](a: A) extends Free[S, A]
+  final case class Mapped[S[_], A, B](fa: F[A], f: A =&gt; B) extends Free[S, B]
+}
+</code></pre>
+<p>注意Mapped的fa参数类型是F[A]，
+也就是Mapped(fa: Future[A], f: A =&gt; B)可以是一个Free[CompletableFuture[_], B]<br>
+Mapped相当于创建了一个object记下了原来的所有内容和f，并没有马上应用f。<br>
+Point是最原始的状态，从来没有被map过。<br>
+叫Free的原因是因为他能随意转换成任意的functor，例如转化成一个Future</p>
+<pre><code class="language-scala">object futureInterpreter {
+  def apply[S[_], A](free: Free[S, A]): Future[A] = 
+    free match {
+      case Free.Pure(a) =&gt;
+        Future.successful(a)
+      case Free.Mapped(fa, f) =&gt;
+        futureInterpreter(fa).map(f)
+    }
+}
+</code></pre>
+<p>例如转换成一个Id</p>
+<pre><code class="language-scala">object idInterpreter {
+  def apply[S[_], A](free: Free[S, A]): Id[A] = 
+    free match {
+      case Free.Pure(a) =&gt; Id(a)
+      case Free.Mapped(fa, f) =&gt; idInterpreter(fa).map(f)
+    }
+}
+</code></pre>
+<p>回到最开始的问题，如果要把Future转换成Promise，可以把Future[A]包装成一个Free[Future, A]。
+然后用一个PromiseInterpreter把Free转换成Promise</p>
+<h2>cats中的functionK</h2>
+<p>functionK是higher-kind-function，跟natural transformation是同一个概念，scalaz里面叫natural transformation。<br>
+cats文档里面用了一个DSL的例子，在这个例子中，是要把DSL(KVStoreA)包装成Free[KVStoreA, A],<br>
+然后把这个Free转换成Id/Future</p>
+<p>定义DSL中所有的语法ADT</p>
+<pre><code class="language-scala">sealed trait KVStoreA[A]
+case class Put[T](key: String, value: T) extends KVStoreA[Unit]
+case class Get[T](key: String) extends KVStoreA[Option[T]]
+case class Delete(key: String) extends KVStoreA[Unit]
+</code></pre>
+<p>包装成Free，这样就可以把KVStoreA转换成任意的functor</p>
+<pre><code class="language-scala">type KVStore[A] = Free[KVStoreA, A]
+
+// Put returns nothing (i.e. Unit).
+def put[T](key: String, value: T): KVStore[Unit] =
+  liftF[KVStoreA, Unit](Put[T](key, value))
+
+// Get returns a T value.
+def get[T](key: String): KVStore[Option[T]] =
+  liftF[KVStoreA, Option[T]](Get[T](key))
+
+// Delete returns nothing (i.e. Unit).
+def delete(key: String): KVStore[Unit] =
+  liftF(Delete(key))
+
+// Update composes get and set, and returns nothing.
+def update[T](key: String, f: T =&gt; T): KVStore[Unit] =
+  for {
+    vMaybe &lt;- get[T](key)
+    _ &lt;- vMaybe.map(v =&gt; put[T](key, f(v))).getOrElse(Free.pure(()))
+  } yield ()
+</code></pre>
+<p>因为KVStore是一个free monad，所以可以像monad一样compose起来，实际上是记录了原始的信息和所有的
+map/flatMap方法。</p>
+<pre><code class="language-scala">def program: KVStore[Option[Int]] =
+  for {
+    _ &lt;- put("wild-cats", 2)
+    _ &lt;- update[Int]("wild-cats", (_ + 12))
+    _ &lt;- put("tame-cats", 5)
+    n &lt;- get[Int]("wild-cats")
+    _ &lt;- delete("tame-cats")
+  } yield n
+</code></pre>
+<p>最后可以用compiler(interpreter)把Free monad转换成任意的monad</p>
+<pre><code class="language-scala">def impureCompiler: KVStoreA ~&gt; Id  =
+  new (KVStoreA ~&gt; Id) {
+
+    // a very simple (and imprecise) key-value store
+    val kvs = mutable.Map.empty[String, Any]
+
+    def apply[A](fa: KVStoreA[A]): Id[A] =
+      fa match {
+        case Put(key, value) =&gt;
+          println(s"put($key, $value)")
+          kvs(key) = value
+          ()
+        case Get(key) =&gt;
+          println(s"get($key)")
+          kvs.get(key).map(_.asInstanceOf[A])
+        case Delete(key) =&gt;
+          println(s"delete($key)")
+          kvs.remove(key)
+          ()
+      }
+  }
+</code></pre>
+<p>这里的KVStoreA ~&gt; Id是FunctionK[KVStoreA, Id]的alias</p>
+<p>Free monad还有一个延迟执行的功能，当写program的时候，没有实际的side-effect发生。<br>
+只有在foldMap了之后，才有side-effect</p>
+<pre><code class="language-scala">// S[_]是KVStoreA[_], M[_]是Id[_]
+// 把一个S[Option[Int]]转换成了M[Option[Int]]
+val result: Option[Int] = program.foldMap(impureCompiler)
+</code></pre>
+</div></article><aside class="hidden xl:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"><div class="section-label">Backlinks</div><div class="text-muted-italic">Coming soon...</div></div></aside></div></div></div><script>(function() {  const headings = document.querySelectorAll('.prose h2, .prose h3, .prose h4, .prose h5, .prose h6');  const tocLinks = document.querySelectorAll('.toc a');  if (headings.length === 0 || tocLinks.length === 0) return;  function updateActiveHeading() {    let currentActiveIndex = 0;    const scrollOffset = 120;    headings.forEach(function(heading, index) {      const rect = heading.getBoundingClientRect();      if (rect.top &lt;= scrollOffset) { currentActiveIndex = index; }    });    tocLinks.forEach(function(link, index) {      if (index === currentActiveIndex) {        link.classList.add('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.remove('text-gray-600', 'text-gray-600');      } else {        link.classList.remove('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.add('text-gray-600');      }    });  }  document.addEventListener('scroll', updateActiveHeading, { passive: true });  window.addEventListener('resize', updateActiveHeading);  updateActiveHeading();})();</script></main><footer class="layout-footer"><div class="layout-container layout-footer-inner"><div class="flex flex-col items-center justify-center gap-8"><nav class="flex flex-wrap justify-center gap-8"><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.linkedin.com/in/zihao-lin-8b8067326/" target="_blank" rel="noopener noreferrer">LinkedIn</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://x.com/fTJSaF2VnI11762" target="_blank" rel="noopener noreferrer">X (Twitter)</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://space.bilibili.com/375039815" target="_blank" rel="noopener noreferrer">Bilibili</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.zhihu.com/people/lin-zi-hao-8-89" target="_blank" rel="noopener noreferrer">Zhihu</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://github.com/schneiderlin" target="_blank" rel="noopener noreferrer">GitHub</a></nav><p class="text-base text-gray-600">© 2026 LinZiHao. All rights reserved.</p></div></div></footer><script>document.getElementById('mobile-menu-button').addEventListener('click', function() {
+    var menu = document.getElementById('navbar-default');
+    menu.classList.toggle('hidden');
+  });</script><script>(function() {
+    const progressBar = document.getElementById('progress-bar');
+    if (progressBar) {
+      function updateProgressBar() {
+        const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrollPercent = scrollHeight &gt; 0 ? (scrollTop / scrollHeight) * 100 : 0;
+        progressBar.style.setProperty('--progress', scrollPercent + '%');
+      }
+      document.addEventListener('scroll', updateProgressBar, { passive: true });
+      window.addEventListener('resize', updateProgressBar);
+      updateProgressBar();
+    }
+  })();</script></body></html>

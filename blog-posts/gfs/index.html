@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="An analysis of the Google File System (GFS) architecture, discussing its design assumptions, chunk-based storage, metadata management, and consistency model. The post explores the benefits and drawbacks of large chunk sizes, the role of the master server, and the system's approach to data mutations and consistency."><title>GFS</title><link rel="icon" type="image/svg+xml" href="/038e7b9ecee8/favicon.svg"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Serif+SC:wght@400;500;600;700&amp;display=swap"><link rel="stylesheet" href="/css/styles.css"><style>
+      #progress-bar {
+        --progress: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 3px;
+        width: var(--progress);
+        background-color: var(--primary-600);
+        z-index: 9999;
+        transition: width 0.1s ease-out;
+      }
+      .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+    </style><meta property="og:title" content="GFS"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/gfs/"></head><body class="min-h-screen flex flex-col"><nav class="layout-nav-bar"><div class="layout-container"><div class="layout-nav-row"><a class="layout-nav-logo" href="/"><div class="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16v12H4z"></path><path d="M8 20h8"></path><path d="M12 16v4"></path></svg></div><span class="layout-nav-logo-text text-lg font-medium tracking-tight">LinZiHao</span></a><div class="hidden md:flex items-center gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div><button id="mobile-menu-button" class="md:hidden p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all duration-300" type="button" aria-controls="navbar-default" aria-expanded="false"><span class="sr-only">打开菜单</span><svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 17 14"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h15M1 7h15M1 13h15"></path></svg></button></div><div id="navbar-default" class="hidden md:hidden border-t border-border-default py-2"><div class="flex flex-col gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div></div></div></nav><main class="flex-1"><div id="progress-bar"></div><div class="layout-container layout-section-spacing"><header class="layout-content-header"><div class="flex flex-wrap justify-center gap-2 section-heading-spacing"><span class="badge badge-neutral">distributed-system</span><span class="badge badge-neutral">6.824</span></div><h1 class="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight section-heading-spacing heading-center">GFS</h1><p class="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed section-heading-spacing heading-center">An analysis of the Google File System (GFS) architecture, discussing its design assumptions, chunk-based storage, metadata management, and consistency model. The post explores the benefits and drawbacks of large chunk sizes, the role of the master server, and the system's approach to data mutations and consistency.</p><div class="flex items-center justify-center gap-4 text-sm text-gray-600 section-meta-spacing"><div class="flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg><span>2018-10-29</span></div></div></header><div class="mx-auto"><div class="flex flex-col lg:flex-row gap-6 lg:gap-8 xl:gap-12"><aside class="hidden lg:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"></div></aside><article class="layout-main-content"><div class="prose prose-lg max-w-none"><h2>GFS论文</h2>
+<h3>假设</h3>
+<ul>
+<li>文件的数量是GB级别，文件的大小是100MB左右，也支持小文件，但是没有特别优化</li>
+<li>读的结构一般是大批的streaming read和小规模的random read。stream一般是读1MB，random一般是读几kb</li>
+<li>写的结构是顺序的append，写了的基本不会改，也支持少量修改，不过不保证效率</li>
+<li>优化throughput放弃latency</li>
+<li>直接snapshot和record append</li>
+</ul>
+<h3>架构</h3>
+<p>cluster里面有一个master和多个chunkserver。
+文件被分为固定大小的chunk，每一个chunk都有一个全局唯一的ID，是64bit的叫做chunk handle，在master创建的时候生成。
+chunk一般replica3份放在不同的chunkserver
+meta-data的交互跟master进行，所有data的交互都直接跟chunkserver进行。
+<img src="https://i.imgur.com/74uiX7h.png" alt=""></p>
+<h3>chunk size</h3>
+<p>chunk size64MB，大chunk size的好处。
+client和master交互得到一次meta data之后，就可以和某一个chunk server建立持久的TCP连接，然后读一堆的东西。
+chunk size大减少了master需要维持的meta data数量。</p>
+<p>chunk size大的坏处。
+需要用lazy space allocation
+有一些小文件可能只占一个chunk，存这个chunk的server可能会变成hot spot</p>
+<h3>metadata</h3>
+<p>master persistent file的namespace和file2chunk的mapping。
+chunk的位置只存在内存，master启动的时候询问chunkserver他存了什么chunk。</p>
+<h3>consistency model</h3>
+<p>什么是file region？
+file region的几种状态</p>
+<ul>
+<li>consistent，所有client不管读哪个replica都能读到一样的内容</li>
+<li>defined，mutation的时候没有受到concurrent writer的干扰，就是defined的，并且consistent</li>
+<li>undefined，concurrent的mutation成功，可以保证所有人看到的是一样的，但是可能有一些writer的mutation被覆盖了。也是consistent的，可能混了不同mutation的部分。</li>
+<li>undefined+unconsistent，mutation失败</li>
+</ul>
+<p>application只需要区分define和undefined，具体是怎么样的undefined不需要关心。</p>
+<p>写数据有两种方式
+write和record append</p>
+<ul>
+<li>write是写在application指定的offset</li>
+<li>record append是写在GFS指定的offset，在concurrent的时候不一定是文件的末尾。写完会返回给client一个offset，client将这个offset作为defined region的开始</li>
+</ul>
+<p>要保证mutation正确，需要</p>
+<ol>
+<li>对一个chunk和他的所有replica都做相同顺序的mutation</li>
+<li>用version number检测有没有replica miss了某个mutation</li>
+</ol>
+<p>TODO: padding是什么东西</p>
+<h3>mutation的order</h3>
+</div></article><aside class="hidden xl:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"><div class="section-label">Backlinks</div><div class="text-muted-italic">Coming soon...</div></div></aside></div></div></div><script>(function() {  const headings = document.querySelectorAll('.prose h2, .prose h3, .prose h4, .prose h5, .prose h6');  const tocLinks = document.querySelectorAll('.toc a');  if (headings.length === 0 || tocLinks.length === 0) return;  function updateActiveHeading() {    let currentActiveIndex = 0;    const scrollOffset = 120;    headings.forEach(function(heading, index) {      const rect = heading.getBoundingClientRect();      if (rect.top &lt;= scrollOffset) { currentActiveIndex = index; }    });    tocLinks.forEach(function(link, index) {      if (index === currentActiveIndex) {        link.classList.add('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.remove('text-gray-600', 'text-gray-600');      } else {        link.classList.remove('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.add('text-gray-600');      }    });  }  document.addEventListener('scroll', updateActiveHeading, { passive: true });  window.addEventListener('resize', updateActiveHeading);  updateActiveHeading();})();</script></main><footer class="layout-footer"><div class="layout-container layout-footer-inner"><div class="flex flex-col items-center justify-center gap-8"><nav class="flex flex-wrap justify-center gap-8"><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.linkedin.com/in/zihao-lin-8b8067326/" target="_blank" rel="noopener noreferrer">LinkedIn</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://x.com/fTJSaF2VnI11762" target="_blank" rel="noopener noreferrer">X (Twitter)</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://space.bilibili.com/375039815" target="_blank" rel="noopener noreferrer">Bilibili</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.zhihu.com/people/lin-zi-hao-8-89" target="_blank" rel="noopener noreferrer">Zhihu</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://github.com/schneiderlin" target="_blank" rel="noopener noreferrer">GitHub</a></nav><p class="text-base text-gray-600">© 2026 LinZiHao. All rights reserved.</p></div></div></footer><script>document.getElementById('mobile-menu-button').addEventListener('click', function() {
+    var menu = document.getElementById('navbar-default');
+    menu.classList.toggle('hidden');
+  });</script><script>(function() {
+    const progressBar = document.getElementById('progress-bar');
+    if (progressBar) {
+      function updateProgressBar() {
+        const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrollPercent = scrollHeight &gt; 0 ? (scrollTop / scrollHeight) * 100 : 0;
+        progressBar.style.setProperty('--progress', scrollPercent + '%');
+      }
+      document.addEventListener('scroll', updateProgressBar, { passive: true });
+      window.addEventListener('resize', updateProgressBar);
+      updateProgressBar();
+    }
+  })();</script></body></html>

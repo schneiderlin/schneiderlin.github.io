@@ -1,0 +1,142 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="An introduction to lenses in functional programming, explaining how they serve as functional equivalents to getters and setters in object-oriented programming, with code examples in Scala."><title>lens，函数式的getter和setter</title><link rel="icon" type="image/svg+xml" href="/038e7b9ecee8/favicon.svg"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Serif+SC:wght@400;500;600;700&amp;display=swap"><link rel="stylesheet" href="/css/styles.css"><style>
+      #progress-bar {
+        --progress: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 3px;
+        width: var(--progress);
+        background-color: var(--primary-600);
+        z-index: 9999;
+        transition: width 0.1s ease-out;
+      }
+      .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+    </style><meta property="og:title" content="lens，函数式的getter和setter"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/lens/"></head><body class="min-h-screen flex flex-col"><nav class="layout-nav-bar"><div class="layout-container"><div class="layout-nav-row"><a class="layout-nav-logo" href="/"><div class="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16v12H4z"></path><path d="M8 20h8"></path><path d="M12 16v4"></path></svg></div><span class="layout-nav-logo-text text-lg font-medium tracking-tight">LinZiHao</span></a><div class="hidden md:flex items-center gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div><button id="mobile-menu-button" class="md:hidden p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all duration-300" type="button" aria-controls="navbar-default" aria-expanded="false"><span class="sr-only">打开菜单</span><svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 17 14"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h15M1 7h15M1 13h15"></path></svg></button></div><div id="navbar-default" class="hidden md:hidden border-t border-border-default py-2"><div class="flex flex-col gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div></div></div></nav><main class="flex-1"><div id="progress-bar"></div><div class="layout-container layout-section-spacing"><header class="layout-content-header"><div class="flex flex-wrap justify-center gap-2 section-heading-spacing"><span class="badge badge-neutral">scala</span><span class="badge badge-neutral">functional-programming</span></div><h1 class="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight section-heading-spacing heading-center">lens，函数式的getter和setter</h1><p class="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed section-heading-spacing heading-center">An introduction to lenses in functional programming, explaining how they serve as functional equivalents to getters and setters in object-oriented programming, with code examples in Scala.</p><div class="flex items-center justify-center gap-4 text-sm text-gray-600 section-meta-spacing"><div class="flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg><span>2018-11-22</span></div></div></header><div class="mx-auto"><div class="flex flex-col lg:flex-row gap-6 lg:gap-8 xl:gap-12"><aside class="hidden lg:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"></div></aside><article class="layout-main-content"><div class="prose prose-lg max-w-none"><h2>Lens, getter/setter the functional way</h2>
+<p>在OOP和FP中，一个type里面往往包含了另一个type。</p>
+<p>在OOP中，要获取和修改内部的值，需要用外部提供的getter和setter方法。
+在FP中，有一个Lens[S, A] type，可以看作是OOP中的getter/setter。</p>
+<pre><code>trait Lens[S, A] {
+  def get(s: S): A
+
+  def set(s: S, a: A): S
+
+  def modify(s: S)(f: A =&gt; A): S =
+    set(s, f(get(s)))
+
+  def modifyOption(s: S)(f: A =&gt; Option[A]): Option[S] =
+    f(get(s)).map(a =&gt; set(s, a))
+
+  def modifyList(s: S)(f: A =&gt; List[A]): List[S] =
+    f(get(s)).map(a =&gt; set(s, a))
+}
+</code></pre>
+<h3>modifyOption和modifyList其实是modifyF</h3>
+<p>观察发现，modifyOption和modifyList的实现方式是完全一样的。
+作为一个FP programmer，可以发现只要f返回的是一个Functor[_]，实现方式都是一样的。</p>
+<pre><code>def modifyF[F[_] : Functor](s: S)(f: A =&gt; F[A]): F[S] =
+    f(get(s)).map(a =&gt; set(s, a))
+</code></pre>
+<h3>modify其实是modifyF</h3>
+<p>看modifyF和modify的区别，可以发现modify就是modify Id functor。</p>
+<h3>set其实是modify</h3>
+<p>看set和modify的区别，可以把set看成是modify传入了一个</p>
+<pre><code>f = () =&gt; s
+</code></pre>
+<p>无视了get出来的值，直接提供s。</p>
+<p>现在可以改一下实现，用modifyF表示modify，用modify表示set。
+但是modifyF要保持abstract，不然modifyF和set之间会不断循环调用。</p>
+<pre><code>trat Lens[S, A] {
+	def modifyF[F[_]: Functor](s: S)(f: A =&gt; F[A]): F[S]
+
+	def modify(s: S)(f: A =&gt; A): S =
+		modifyF[Id](s)(f)
+
+	def get(s: S): A
+	
+	def set(s: S, a: A): S = 
+		modify(s)(_ =&gt; a)
+}
+</code></pre>
+<h2>为一个case class实现Lens</h2>
+<p>现在有一个case class Person</p>
+<pre><code>case class Person(name: String)
+</code></pre>
+<p>要为Person实现一个Lens[Person, String]，可以get和set名字。</p>
+<p>因为modify和set都是推导出来的，所以只需要实现modifyF和get，然而一会将会看到，get也可以又modifyF表示。</p>
+<pre><code>implicit val personLens = new Lens[Person, String] {
+    override def modifyF[F[_]: Functor](s: Person)(f: String ⇒ F[String]): F[Person] = {
+      val fa: F[String] = f(s.name)
+      fa.map(a ⇒ s.copy(a))
+    }
+  }
+</code></pre>
+<p>这里没有实现get，因为get一会要从modifyF推导出来。</p>
+<p>注意modifyF的实现，首先通过f获得了一个F[A]。
+然后把这个F[A] map 成一个F[S]返回。</p>
+<h3>get也可以用modifyF表示</h3>
+<p>用modifyF实现get的关键，就是要找到一个合适的F[_]。</p>
+<ol>
+<li>在modifyF中，f拿到一个A（这个就是要get的），然后把这个A变成了F[A]。
+因此这里要找的F[_]需要能够储存信息，在</li>
+</ol>
+<pre><code>val fa = f(s.name)
+</code></pre>
+<p>这一步的时候，把s.name这个信息，储存起来。</p>
+<ol start="2">
+<li>modifyF最后返回的是一个F[S]，因此在F[A] map 到F[S]的过程中，储存的信息不能丢失</li>
+<li>并且要能从F[S]中提取出A</li>
+</ol>
+<h4>这个F[_]是什么？</h4>
+<p>在上面的3条中，第2条是最有约束力，提供了最多信息的。
+map不改变任何内容的functor…这个F[_]是Const[A, ?]!</p>
+<pre><code>case class Const[A, B](getConst: A)
+</code></pre>
+<p>Const[_, _]有两个type parameter，固定第一个之后，就是要找的F[_]</p>
+<pre><code>implicit def constFunctor[X]: Functor[Const[X, ?]] = 
+	new Functor[Const[X, ?]] {
+		def map[A, B](fa: Const[X, A])(f: A =&gt; B): Const[X, B] = 
+			Const(fa.getConst)
+}
+</code></pre>
+<p>可以看到map完之后内容没有变化，Const(fa.getConst)里type是Const[X, B]，但是里面存的a还是和fa里面存的a是一样的。
+B这种对runtime没有影响的type，叫做phantom type。</p>
+<p>满足了第二条之后，再来检查另外的约束。</p>
+<ol>
+<li>能够把一个a lift成F[A]，储存信息</li>
+</ol>
+<pre><code>a =&gt; Const(a)
+</code></pre>
+<p>满足第一条
+2. 能从F[S]中提取出A</p>
+<pre><code>val fs: F[A, S] = Const(fa.getConst)
+val a: A = fs.getConst
+</code></pre>
+<p>满足第三条</p>
+<p>现在可以把get也用modifyF表示</p>
+<pre><code> def get(s: S): A = {
+    val storedValue = modifyF[Const[A, ?]](s)(a =&gt; Const(a))
+    storedValue.getConst
+  }
+</code></pre>
+</div></article><aside class="hidden xl:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"><div class="section-label">Backlinks</div><div class="text-muted-italic">Coming soon...</div></div></aside></div></div></div><script>(function() {  const headings = document.querySelectorAll('.prose h2, .prose h3, .prose h4, .prose h5, .prose h6');  const tocLinks = document.querySelectorAll('.toc a');  if (headings.length === 0 || tocLinks.length === 0) return;  function updateActiveHeading() {    let currentActiveIndex = 0;    const scrollOffset = 120;    headings.forEach(function(heading, index) {      const rect = heading.getBoundingClientRect();      if (rect.top &lt;= scrollOffset) { currentActiveIndex = index; }    });    tocLinks.forEach(function(link, index) {      if (index === currentActiveIndex) {        link.classList.add('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.remove('text-gray-600', 'text-gray-600');      } else {        link.classList.remove('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.add('text-gray-600');      }    });  }  document.addEventListener('scroll', updateActiveHeading, { passive: true });  window.addEventListener('resize', updateActiveHeading);  updateActiveHeading();})();</script></main><footer class="layout-footer"><div class="layout-container layout-footer-inner"><div class="flex flex-col items-center justify-center gap-8"><nav class="flex flex-wrap justify-center gap-8"><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.linkedin.com/in/zihao-lin-8b8067326/" target="_blank" rel="noopener noreferrer">LinkedIn</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://x.com/fTJSaF2VnI11762" target="_blank" rel="noopener noreferrer">X (Twitter)</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://space.bilibili.com/375039815" target="_blank" rel="noopener noreferrer">Bilibili</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.zhihu.com/people/lin-zi-hao-8-89" target="_blank" rel="noopener noreferrer">Zhihu</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://github.com/schneiderlin" target="_blank" rel="noopener noreferrer">GitHub</a></nav><p class="text-base text-gray-600">© 2026 LinZiHao. All rights reserved.</p></div></div></footer><script>document.getElementById('mobile-menu-button').addEventListener('click', function() {
+    var menu = document.getElementById('navbar-default');
+    menu.classList.toggle('hidden');
+  });</script><script>(function() {
+    const progressBar = document.getElementById('progress-bar');
+    if (progressBar) {
+      function updateProgressBar() {
+        const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrollPercent = scrollHeight &gt; 0 ? (scrollTop / scrollHeight) * 100 : 0;
+        progressBar.style.setProperty('--progress', scrollPercent + '%');
+      }
+      document.addEventListener('scroll', updateProgressBar, { passive: true });
+      window.addEventListener('resize', updateProgressBar);
+      updateProgressBar();
+    }
+  })();</script></body></html>

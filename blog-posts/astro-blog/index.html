@@ -1,0 +1,225 @@
+<!DOCTYPE html><html lang="en" prefix="og: http://ogp.me/ns#"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="An overview of the technologies and tools used to create this blog, including Astro, MDX, React, Tailwind CSS, and more."><title>博客使用的技术栈</title><link rel="icon" type="image/svg+xml" href="/038e7b9ecee8/favicon.svg"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Serif+SC:wght@400;500;600;700&amp;display=swap"><link rel="stylesheet" href="/css/styles.css"><style>
+      #progress-bar {
+        --progress: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 3px;
+        width: var(--progress);
+        background-color: var(--primary-600);
+        z-index: 9999;
+        transition: width 0.1s ease-out;
+      }
+      .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+    </style><meta property="og:title" content="博客使用的技术栈"><meta property="og:url" content="https://schneiderlin.github.io/blog-posts/astro-blog/"></head><body class="min-h-screen flex flex-col"><nav class="layout-nav-bar"><div class="layout-container"><div class="layout-nav-row"><a class="layout-nav-logo" href="/"><div class="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16v12H4z"></path><path d="M8 20h8"></path><path d="M12 16v4"></path></svg></div><span class="layout-nav-logo-text text-lg font-medium tracking-tight">LinZiHao</span></a><div class="hidden md:flex items-center gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div><button id="mobile-menu-button" class="md:hidden p-2 text-gray-600 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all duration-300" type="button" aria-controls="navbar-default" aria-expanded="false"><span class="sr-only">打开菜单</span><svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 17 14"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h15M1 7h15M1 13h15"></path></svg></button></div><div id="navbar-default" class="hidden md:hidden border-t border-border-default py-2"><div class="flex flex-col gap-1"><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/">Home</a><a class="px-3 py-2 text-base text-gray-700 rounded-md hover:bg-gray-100 hover:text-primary-600 transition-all duration-300" href="/about/">About</a></div></div></div></nav><main class="flex-1"><div id="progress-bar"></div><div class="layout-container layout-section-spacing"><header class="layout-content-header"><div class="flex flex-wrap justify-center gap-2 section-heading-spacing"><span class="badge badge-neutral">astro</span></div><h1 class="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight section-heading-spacing heading-center">博客使用的技术栈</h1><p class="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed section-heading-spacing heading-center">An overview of the technologies and tools used to create this blog, including Astro, MDX, React, Tailwind CSS, and more.</p><div class="flex items-center justify-center gap-4 text-sm text-gray-600 section-meta-spacing"><div class="flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg><span>2024-07-10</span></div></div></header><div class="mx-auto"><div class="flex flex-col lg:flex-row gap-6 lg:gap-8 xl:gap-12"><aside class="hidden lg:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"></div></aside><article class="layout-main-content"><div class="prose prose-lg max-w-none"><p>用的是 astro</p>
+<h2>mdx</h2>
+<p>一个命令
+<code>pnpm astro add mdx</code>
+就可以在 astro 项目里面加上 mdx 支持了, 会自动加依赖, 并且修改 astro 配置文件, 把插件加上.</p>
+<h2>react</h2>
+<p><code>pnpm astro add react</code>
+加上 react, 会自动添加依赖, 修改 tsconfig, 修改 astro 配置</p>
+<h2>tailwind and style</h2>
+<p><code>pnpm astro add tailwind</code></p>
+<p>其他 UI 相关的依赖
+<code>pnpm i @headlessui/react</code>
+<code>pnpm i @heroicons/react@v1</code></p>
+<p><code>pnpm install -D @tailwindcss/typography</code>
+然后在 tailwind.config.js 里面修改</p>
+<pre><code class="language-javascript">plugins: [
+    require('@tailwindcss/typography'),
+    // ...
+],
+</code></pre>
+<p>现在多了一个 utility class prose 可以用了</p>
+<p>图片用了 astro 的 Image component 做自动优化, 因为用的是 pnpm, 不会自动安装额外的依赖, 需要手动装一下
+<code>pnpm add sharp</code></p>
+<h2>google analytic</h2>
+<p><code>pnpm astro add partytown</code>
+需要用到 partytown, partytown 是用来懒加载第三方 script 的, 可以优化加载速度</p>
+<p>去 google analytic 创建个媒体资源, 会拿到对应的 gtag id.
+替换到 GoogleAnalytic component 就可以</p>
+<pre><code class="language-astro">&lt;!-- Google tag (gtag.js) --&gt;
+&lt;script
+  type="text/partytown"
+  async
+  src="https://www.googletagmanager.com/gtag/js?id=tag"&gt;&lt;/script&gt;
+&lt;script type="text/partytown"&gt;
+  window.dataLayer = window.dataLayer || [];
+  function gtag() {
+    dataLayer.push(arguments);
+  }
+  gtag("js", new Date());
+
+  gtag("config", "tag");
+&lt;/script&gt;
+
+</code></pre>
+<h2>评论系统</h2>
+<p>评论用的是 <a href="https://giscus.app/zh-CN">giscus</a>
+在 github 仓库里面 enable discussion 功能, 把仓库设置成 public 的, 否则看不到评论.
+在 giscus 页面里面填仓库地址, 设置一下, 就会拿到一串 script, 把这个做成 astro 的 component 再引用到 blog layout 里面</p>
+<pre><code class="language-astro">&lt;section class="giscus mx-auto mt-10 w-full"&gt;&lt;/section&gt;
+
+&lt;script src="https://giscus.app/client.js"
+        data-repo="schneiderlin/astro_blog"
+        data-repo-id="R_kgDOMUUSTw"
+        data-category="Blog Post Comments"
+        data-category-id="DIC_kwDOMUUST84Cgr-R"
+        data-mapping="url"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="preferred_color_scheme"
+        data-lang="zh-CN"
+        data-loading="lazy"
+        crossorigin="anonymous"
+        async&gt;
+&lt;/script&gt;
+</code></pre>
+<h2>阅读进度条</h2>
+<p>astro component 里面可以直接写 <code>&lt;script&gt;</code> 和 <code>&lt;style&gt;</code> tag, 因此一个 component 就可以实现进度条功能</p>
+<pre><code class="language-astro">---
+---
+&lt;div id="progress-bar"&gt;
+
+&lt;/div&gt;
+&lt;script&gt;
+    function updateProgressBar() {
+        const {scrollTop, scrollHeight} = document.documentElement
+        const scrollPercent = `${(scrollTop / (scrollHeight - window.innerHeight)) * 100}%`
+
+        document.querySelector('#progress-bar')!.style.setProperty('--progress', scrollPercent)
+    }
+
+    document.addEventListener('scroll', updateProgressBar)
+&lt;/script&gt;
+
+&lt;style&gt;
+    #progress-bar {
+        --progress: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 6px;
+        width: var(--progress);
+        background-color: #502020;
+    }
+&lt;/style&gt;
+</code></pre>
+<h2>sitemap</h2>
+<p><code>pnpm astro add sitemap</code>
+需要在 astro.config.js 里面写 site</p>
+<pre><code class="language-javascript">import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
+
+export default defineConfig({
+  // ...
+  site: 'https://stargazers.club',
+  integrations: [sitemap()],
+});
+</code></pre>
+<p>再 npx astro build, 会打印出在哪个路径输出了 sitemap xml, 这一步只是为了检查
+在 layout 里面把 sitemap 加到 head 里面</p>
+<pre><code class="language-astro">&lt;head&gt;
+  ...
+  &lt;link rel="sitemap" href="/sitemap-index.xml" /&gt;
+&lt;/head&gt;
+</code></pre>
+<h2>Open Graph</h2>
+<p>Open Graph 是用来在社交网络上分享链接时显示的图片和描述, 用的是 <a href="https://ogp.me/">ogp.me</a> 的规范
+在 <a href="https://www.opengraph.xyz/">https://www.opengraph.xyz/</a> 输入 url 可以预览这个 url 在各个社交网络上的分享效果</p>
+<p>不需要用到任何外部的工具, 每个 blog post 的 frontmatter 里面可以自己加 ogImage 和 description.
+写一个 OpenGraphTags 的 component, 在 Layout 里面引用</p>
+<pre><code class="language-astro">---
+interface Props {
+  title: string;
+  description: string;
+  ogImage?: string;
+}
+
+const { title, description, ogImage } = Astro.props;
+const siteUrl = Astro.site ? Astro.site.href : 'https://linzihao.com/';
+---
+
+&lt;!-- Open Graph / Facebook --&gt;
+&lt;meta property="og:type" content="article"&gt;
+&lt;meta property="og:url" content={Astro.url}&gt;
+&lt;meta property="og:title" content={title}&gt;
+&lt;meta property="og:description" content={description}&gt;
+{ogImage &amp;&amp; &lt;meta property="og:image" content={new URL(ogImage, siteUrl)}&gt;}
+
+&lt;!-- Twitter --&gt;
+&lt;meta property="twitter:card" content="summary_large_image"&gt;
+&lt;meta property="twitter:url" content={Astro.url}&gt;
+&lt;meta property="twitter:title" content={title}&gt;
+&lt;meta property="twitter:description" content={description}&gt;
+{ogImage &amp;&amp; &lt;meta property="twitter:image" content={new URL(ogImage, siteUrl)}&gt;}
+</code></pre>
+<p>在 Layout 里面使用</p>
+<pre><code class="language-astro">&lt;OpenGraphTags title={frontmatter.title} description={frontmatter.description} ogImage={frontmatter.ogImage} /&gt;
+</code></pre>
+<h2>Icon</h2>
+<p>用的是 <a href="https://iconify.design/">Iconify</a> 的图标, 在 astro 里面用的是 <a href="https://github.com/iconify/astro">iconify/astro</a></p>
+<p>安装
+<code>pnpm astro add astro-icon</code></p>
+<p>在 Iconify 里面搜索图标, 拿到图标分两部分, icon set 和 icon name, 例如 <code>mdi:home</code>, mdi 是 icon set, home 是 icon name.
+使用 icon 的 component 是</p>
+<pre><code class="language-astro">import { Icon } from 'astro-icon/components';
+
+&lt;Icon icon="icon-set:icon-name" /&gt;
+</code></pre>
+<p>如果提示找不到 icon-set, 需要安装对应的 icon set, 例如
+<code>pnpm add @iconify-json/simple-icons</code></p>
+<h2>全文搜索</h2>
+<p>用 PageFind 是在 build 的时候, 指定文件夹, 把文件夹里面的所有指定文件扫描, 并且生成对应的索引和搜索组件</p>
+<p>build step</p>
+<pre><code class="language-json">{
+  "scripts": {
+    "postbuild": "pagefind --site dist",
+  }
+}
+</code></pre>
+<p>在页面中使用</p>
+<pre><code class="language-astro">&lt;link href="/pagefind/pagefind-ui.css" rel="stylesheet" /&gt;
+&lt;script is:inline src="/pagefind/pagefind-ui.js"&gt;&lt;/script&gt;
+
+&lt;div id="search"&gt;&lt;/div&gt;
+&lt;script&gt;
+  window.addEventListener('DOMContentLoaded', (event) =&gt; {
+    new (window as any).PagefindUI({ 
+      element: '#search', 
+      processTerm: (term: string) =&gt; {
+        return term; // 这里可以帮用户分词
+      },
+      showSubResults: true 
+    });
+  });
+&lt;/script&gt;
+</code></pre>
+<p>PageFind 会根据 html 的 lang 属性, 生成对应的语言的搜索组件.
+因此在每个 blog 的 fontmatter 里面都设置了 lang, 并且在传递到 Layout 中.</p>
+</div></article><aside class="hidden xl:block w-44 flex-shrink-0"><div class="layout-sidebar-sticky"><div class="section-label">Backlinks</div><div class="text-muted-italic">Coming soon...</div></div></aside></div></div></div><script>(function() {  const headings = document.querySelectorAll('.prose h2, .prose h3, .prose h4, .prose h5, .prose h6');  const tocLinks = document.querySelectorAll('.toc a');  if (headings.length === 0 || tocLinks.length === 0) return;  function updateActiveHeading() {    let currentActiveIndex = 0;    const scrollOffset = 120;    headings.forEach(function(heading, index) {      const rect = heading.getBoundingClientRect();      if (rect.top &lt;= scrollOffset) { currentActiveIndex = index; }    });    tocLinks.forEach(function(link, index) {      if (index === currentActiveIndex) {        link.classList.add('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.remove('text-gray-600', 'text-gray-600');      } else {        link.classList.remove('text-primary-600', 'font-semibold', 'bg-primary-50');        link.classList.add('text-gray-600');      }    });  }  document.addEventListener('scroll', updateActiveHeading, { passive: true });  window.addEventListener('resize', updateActiveHeading);  updateActiveHeading();})();</script></main><footer class="layout-footer"><div class="layout-container layout-footer-inner"><div class="flex flex-col items-center justify-center gap-8"><nav class="flex flex-wrap justify-center gap-8"><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.linkedin.com/in/zihao-lin-8b8067326/" target="_blank" rel="noopener noreferrer">LinkedIn</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://x.com/fTJSaF2VnI11762" target="_blank" rel="noopener noreferrer">X (Twitter)</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://space.bilibili.com/375039815" target="_blank" rel="noopener noreferrer">Bilibili</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://www.zhihu.com/people/lin-zi-hao-8-89" target="_blank" rel="noopener noreferrer">Zhihu</a><a class="text-base text-gray-600 hover:text-primary-600 transition-colors duration-300" href="https://github.com/schneiderlin" target="_blank" rel="noopener noreferrer">GitHub</a></nav><p class="text-base text-gray-600">© 2026 LinZiHao. All rights reserved.</p></div></div></footer><script>document.getElementById('mobile-menu-button').addEventListener('click', function() {
+    var menu = document.getElementById('navbar-default');
+    menu.classList.toggle('hidden');
+  });</script><script>(function() {
+    const progressBar = document.getElementById('progress-bar');
+    if (progressBar) {
+      function updateProgressBar() {
+        const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrollPercent = scrollHeight &gt; 0 ? (scrollTop / scrollHeight) * 100 : 0;
+        progressBar.style.setProperty('--progress', scrollPercent + '%');
+      }
+      document.addEventListener('scroll', updateProgressBar, { passive: true });
+      window.addEventListener('resize', updateProgressBar);
+      updateProgressBar();
+    }
+  })();</script></body></html>
